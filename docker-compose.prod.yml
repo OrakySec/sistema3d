@@ -1,14 +1,28 @@
 services:
   # ─────────────────────────────────────────
-  # APLICAÇÃO NEXT.JS (build local / dev)
+  # APLICAÇÃO (imagem pré-built do ghcr.io)
   # ─────────────────────────────────────────
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/${GITHUB_REPOSITORY}:latest
     container_name: sistema3d_app
     restart: unless-stopped
-    env_file: .env.local
+    environment:
+      DATABASE_URL:                        ${DATABASE_URL}
+      AUTH_SECRET:                         ${AUTH_SECRET}
+      NEXT_PUBLIC_APP_URL:                 ${NEXT_PUBLIC_APP_URL}
+      REDIS_URL:                           ${REDIS_URL}
+      MINIO_ENDPOINT:                      ${MINIO_ENDPOINT}
+      MINIO_PORT:                          ${MINIO_PORT}
+      MINIO_ACCESS_KEY:                    ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY:                    ${MINIO_SECRET_KEY}
+      MINIO_BUCKET:                        ${MINIO_BUCKET}
+      STRIPE_SECRET_KEY:                   ${STRIPE_SECRET_KEY}
+      STRIPE_WEBHOOK_SECRET:               ${STRIPE_WEBHOOK_SECRET}
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:  ${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}
+      EVOLUTION_API_URL:                   ${EVOLUTION_API_URL}
+      EVOLUTION_API_KEY:                   ${EVOLUTION_API_KEY}
+      RESEND_API_KEY:                      ${RESEND_API_KEY}
+      EMAIL_FROM:                          ${EMAIL_FROM}
     depends_on:
       postgres:
         condition: service_healthy
@@ -24,9 +38,6 @@ services:
       - "traefik.http.routers.sistema3d.tls.certresolver=letsencrypt"
       - "traefik.http.services.sistema3d.loadbalancer.server.port=3000"
 
-  # ─────────────────────────────────────────
-  # BANCO DE DADOS
-  # ─────────────────────────────────────────
   postgres:
     image: postgres:16-alpine
     container_name: sistema3d_postgres
@@ -45,9 +56,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # ─────────────────────────────────────────
-  # CACHE E FILAS
-  # ─────────────────────────────────────────
   redis:
     image: redis:7-alpine
     container_name: sistema3d_redis
@@ -63,9 +71,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # ─────────────────────────────────────────
-  # STORAGE (PDFs, Fotos, Logos)
-  # ─────────────────────────────────────────
   minio:
     image: minio/minio:latest
     container_name: sistema3d_minio
@@ -92,24 +97,20 @@ services:
       - "traefik.http.routers.minio-api.service=minio-api-svc"
       - "traefik.http.services.minio-api-svc.loadbalancer.server.port=9000"
 
-  # ─────────────────────────────────────────
-  # WHATSAPP API
-  # ─────────────────────────────────────────
   evolution-api:
     image: atendai/evolution-api:latest
     container_name: sistema3d_evolution
     restart: unless-stopped
     environment:
-      SERVER_URL:                        "https://whatsapp.${BASE_DOMAIN}"
-      AUTHENTICATION_API_KEY:            ${EVOLUTION_API_KEY}
-      DATABASE_ENABLED:                  "true"
-      DATABASE_CONNECTION_URI:           ${DATABASE_URL}
-      DATABASE_CONNECTION_CLIENT_NAME:   evolution_api
-      REDIS_ENABLED:                     "true"
-      REDIS_URI:                         "redis://:${REDIS_PASSWORD}@redis:6379"
-      LOG_LEVEL:                         ERROR
-      DEL_INSTANCE:                      "false"
-      WEBHOOK_GLOBAL_ENABLED:            "false"
+      SERVER_URL:                       "https://whatsapp.${BASE_DOMAIN}"
+      AUTHENTICATION_API_KEY:           ${EVOLUTION_API_KEY}
+      DATABASE_ENABLED:                 "true"
+      DATABASE_CONNECTION_URI:          ${DATABASE_URL}
+      DATABASE_CONNECTION_CLIENT_NAME:  evolution_api
+      REDIS_ENABLED:                    "true"
+      REDIS_URI:                        "redis://:${REDIS_PASSWORD}@redis:6379"
+      LOG_LEVEL:                        ERROR
+      DEL_INSTANCE:                     "false"
     volumes:
       - evolution_data:/evolution/instances
     depends_on:
