@@ -42,13 +42,14 @@ const typeColors: Record<string, string> = {
 
 function FilamentDialog({ filament, onClose }: { filament?: Filament; onClose: () => void }) {
   const [pending, startTransition] = useTransition();
-  const { register, handleSubmit, watch, formState: { errors } } = useForm<FilamentForm>({
+  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FilamentForm>({
     resolver: zodResolver(filamentSchema) as Resolver<FilamentForm>,
     defaultValues: filament
       ? { ...filament, brand: filament.brand ?? "", color: filament.color ?? "", colorHex: filament.colorHex ?? "" }
       : { type: "PLA", lowStockAlert: 200, purchasedGrams: 1000, currentGrams: 1000, costPerKg: 85 },
   });
   const colorHex = watch("colorHex");
+  const isValidHex = /^#[0-9A-Fa-f]{6}$/.test(colorHex || "");
 
   function onSubmit(data: FilamentForm) {
     const fd = new FormData();
@@ -83,8 +84,18 @@ function FilamentDialog({ filament, onClose }: { filament?: Filament; onClose: (
           <FormField label="Cor (hex)">
             <div className="flex gap-2">
               <input {...register("colorHex")} placeholder="#FFFFFF" className={inputCls} />
-              <div className="h-10 w-10 shrink-0 rounded-lg border border-border"
-                style={{ backgroundColor: colorHex || "#09090B" }} />
+              <label
+                className="relative h-10 w-10 shrink-0 cursor-pointer overflow-hidden rounded-lg border border-border transition-colors hover:border-primary"
+                style={{ backgroundColor: isValidHex ? colorHex : "#09090B" }}
+                title="Clique para escolher a cor"
+              >
+                <input
+                  type="color"
+                  value={isValidHex ? colorHex! : "#000000"}
+                  onChange={(e) => setValue("colorHex", e.target.value, { shouldValidate: true })}
+                  className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                />
+              </label>
             </div>
           </FormField>
           <FormField label="Peso comprado (g)" error={errors.purchasedGrams?.message}>
