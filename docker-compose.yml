@@ -1,0 +1,153 @@
+services:
+  # ─────────────────────────────────────────
+  # APLICAÇÃO NEXT.JS
+  # ─────────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sistema3d_app
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - NEXTAUTH_URL=${NEXTAUTH_URL}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+      - NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - MINIO_ENDPOINT=${MINIO_ENDPOINT}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+      - MINIO_BUCKET=${MINIO_BUCKET}
+      - REDIS_URL=${REDIS_URL}
+      - EVOLUTION_API_URL=${EVOLUTION_API_URL}
+      - EVOLUTION_API_KEY=${EVOLUTION_API_KEY}
+      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - sistema3d_net
+      - traefik_net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.sistema3d.rule=Host(`${APP_DOMAIN}`)"
+      - "traefik.http.routers.sistema3d.entrypoints=websecure"
+      - "traefik.http.routers.sistema3d.tls.certresolver=letsencrypt"
+      - "traefik.http.services.sistema3d.loadbalancer.server.port=3000"
+
+  # ─────────────────────────────────────────
+  # BANCO DE DADOS
+  # ─────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: sistema3d_postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - sistema3d_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─────────────────────────────────────────
+  # CACHE E FILAS
+  # ─────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: sistema3d_redis
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    networks:
+      - sistema3d_net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─────────────────────────────────────────
+  # STORAGE DE ARQUIVOS (PDFs, Fotos, Logos)
+  # ─────────────────────────────────────────
+  minio:
+    image: minio/minio:latest
+    container_name: sistema3d_minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY}
+      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY}
+    volumes:
+      - minio_data:/data
+    networks:
+      - sistema3d_net
+      - traefik_net
+    labels:
+      - "traefik.enable=true"
+      # Console MinIO
+      - "traefik.http.routers.minio-console.rule=Host(`storage-admin.${BASE_DOMAIN}`)"
+      - "traefik.http.routers.minio-console.entrypoints=websecure"
+      - "traefik.http.routers.minio-console.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.minio-console.service=minio-console-svc"
+      - "traefik.http.services.minio-console-svc.loadbalancer.server.port=9001"
+      # API MinIO
+      - "traefik.http.routers.minio-api.rule=Host(`storage.${BASE_DOMAIN}`)"
+      - "traefik.http.routers.minio-api.entrypoints=websecure"
+      - "traefik.http.routers.minio-api.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.minio-api.service=minio-api-svc"
+      - "traefik.http.services.minio-api-svc.loadbalancer.server.port=9000"
+
+  # ─────────────────────────────────────────
+  # WHATSAPP API
+  # ─────────────────────────────────────────
+  evolution-api:
+    image: atendai/evolution-api:latest
+    container_name: sistema3d_evolution
+    restart: unless-stopped
+    environment:
+      - SERVER_URL=https://whatsapp.${BASE_DOMAIN}
+      - AUTHENTICATION_API_KEY=${EVOLUTION_API_KEY}
+      - DATABASE_ENABLED=true
+      - DATABASE_CONNECTION_URI=${DATABASE_URL}
+      - DATABASE_CONNECTION_CLIENT_NAME=evolution_api
+      - REDIS_ENABLED=true
+      - REDIS_URI=redis://:${REDIS_PASSWORD}@redis:6379
+      - LOG_LEVEL=ERROR
+      - DEL_INSTANCE=false
+      - WEBHOOK_GLOBAL_ENABLED=false
+    volumes:
+      - evolution_data:/evolution/instances
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - sistema3d_net
+      - traefik_net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.evolution.rule=Host(`whatsapp.${BASE_DOMAIN}`)"
+      - "traefik.http.routers.evolution.entrypoints=websecure"
+      - "traefik.http.routers.evolution.tls.certresolver=letsencrypt"
+      - "traefik.http.services.evolution.loadbalancer.server.port=8080"
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  evolution_data:
+
+networks:
+  sistema3d_net:
+    driver: bridge
+  traefik_net:
+    external: true   # Rede externa do Traefik (já existente no seu VPS)
