@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { SettingToggle } from "@/components/shared/SettingToggle";
 import { InfoTip } from "@/components/shared/InfoTip";
+import { WhatsAppConnect } from "@/components/whatsapp/WhatsAppConnect";
 import { inputCls, selectCls } from "@/components/shared/CrudDialog";
 
 // ─── Tipos ───────────────────────────────────────────────────
@@ -389,23 +390,7 @@ export default function ConfiguracoesPage() {
       {tab === "whatsapp" && (
         <>
           <Section title="Conexão">
-            <div className="rounded-xl border border-border bg-surface p-5">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-sm font-medium text-text-primary">Status da conexão</p>
-                  <div className="mt-1 flex items-center gap-2">
-                    <div className="h-2 w-2 rounded-full bg-error animate-pulse" />
-                    <p className="text-xs text-text-muted">Não conectado</p>
-                  </div>
-                </div>
-                <button className="flex items-center gap-2 rounded-lg border border-border bg-surface-hover px-4 py-2 text-sm font-medium text-text-secondary transition-colors hover:border-primary hover:text-primary">
-                  Conectar WhatsApp
-                </button>
-              </div>
-              <div className="mt-4 rounded-lg bg-surface-hover px-4 py-3 text-xs text-text-muted">
-                Um QR Code será exibido aqui. Escaneie com o WhatsApp do celular (Configurações → Dispositivos Vinculados → Vincular dispositivo).
-              </div>
-            </div>
+            <WhatsAppConnect />
           </Section>
 
           <Section title="Automações">
