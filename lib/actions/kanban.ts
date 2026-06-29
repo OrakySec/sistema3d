@@ -15,6 +15,38 @@ async function getUserId() {
   return session.user.id;
 }
 
+export async function startPrint(cardId: string) {
+  const userId = await getUserId();
+
+  const card = await prisma.kanbanCard.findFirst({
+    where:   { id: cardId, userId },
+    include: { quote: true },
+  });
+  if (!card) return { error: "Card não encontrado." };
+
+  const printLog = await prisma.printLog.create({
+    data: {
+      userId,
+      cardId,
+      printerId:     card.quote?.printerId  ?? null,
+      filamentId:    card.quote?.filamentId ?? null,
+      estimatedHours: card.quote?.printHours ?? 1,
+      status:        "STARTED",
+      startedAt:     new Date(),
+    },
+  });
+
+  await prisma.$transaction([
+    prisma.printStatusHistory.create({ data: { printLogId: printLog.id, status: "STARTED" } }),
+    ...(card.column !== "PRINTING"
+      ? [prisma.kanbanCard.update({ where: { id: cardId }, data: { column: "PRINTING" } })]
+      : []),
+  ]);
+
+  revalidatePath("/producao");
+  return { ok: true, printLogId: printLog.id };
+}
+
 export async function moveKanbanCard(cardId: string, toColumn: KanbanColumn) {
   const userId = await getUserId();
 

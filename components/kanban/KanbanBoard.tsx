@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useTransition } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { PrintControlDialog } from "./PrintControlDialog";
 import { cn } from "@/lib/utils";
+import { moveKanbanCard, startPrint, pausePrint, resumePrint, cancelPrint, completePrint } from "@/lib/actions/kanban";
 
 // ─── Tipos ───────────────────────────────────────────────────
 
@@ -49,13 +50,14 @@ type KanbanCol =
 type PrintStatus = "QUEUED" | "STARTED" | "PAUSED" | "RESUMED" | "COMPLETED" | "CANCELLED";
 
 interface PrintLog {
+  id: string;
   status: PrintStatus;
   reason?: string;
   note?: string;
   pausedAt?: string;
 }
 
-interface Card {
+export interface Card {
   id: string;
   column: KanbanCol;
   pieceName: string;
@@ -88,41 +90,6 @@ const COLUMNS: Record<KanbanCol, ColConfig> = {
 
 const COL_ORDER: KanbanCol[] = [
   "WAITING", "APPROVED", "PRINTING", "POST_PROD", "READY", "DELIVERED", "CANCELLED",
-];
-
-// ─── Dados mock ──────────────────────────────────────────────
-
-const INITIAL_CARDS: Card[] = [
-  {
-    id: "c1", column: "WAITING", pieceName: "Vaso Voronoi", clientName: "Ana Lima",
-    totalPrice: 65, dueDate: "02/07/2026", tags: ["PLA"],
-  },
-  {
-    id: "c2", column: "APPROVED", pieceName: "Case Raspberry Pi 5", clientName: "Pedro Costa",
-    printerName: "Bambu X1C", totalPrice: 120, dueDate: "01/07/2026", tags: ["PETG"],
-  },
-  {
-    id: "c3", column: "PRINTING", pieceName: "Organizador Gaveta (6x)", clientName: "Mariana Silva",
-    printerName: "Ender 3 V3", totalPrice: 340, dueDate: "30/06/2026",
-    printLog: { status: "STARTED" },
-  },
-  {
-    id: "c4", column: "PRINTING", pieceName: "Engrenagem Moto", clientName: "Carlos Mendes",
-    printerName: "Bambu X1C", totalPrice: 95, dueDate: "29/06/2026",
-    printLog: { status: "PAUSED", reason: "NOZZLE_CLOG", note: "Bico entupido", pausedAt: "28/06 14:30" },
-  },
-  {
-    id: "c5", column: "POST_PROD", pieceName: "Suporte Mesa", clientName: "Ana Lima",
-    totalPrice: 85, tags: ["Pintura"],
-  },
-  {
-    id: "c6", column: "READY", pieceName: "Protetor de Canto (10x)", clientName: "João Batista",
-    totalPrice: 180,
-  },
-  {
-    id: "c7", column: "DELIVERED", pieceName: "Miniatura RPG", clientName: "Lucas Gomes",
-    totalPrice: 45,
-  },
 ];
 
 // ─── Card arrastável ─────────────────────────────────────────
@@ -328,9 +295,6 @@ function Column({
             {cards.length}
           </span>
         </div>
-        <button className="text-text-muted hover:text-primary transition-colors">
-          <Plus className="h-4 w-4" />
-        </button>
       </div>
 
       {/* Cards */}
@@ -355,12 +319,13 @@ function Column({
 
 type DialogState =
   | { open: false }
-  | { open: true; mode: "pause" | "cancel"; cardId: string; cardTitle: string };
+  | { open: true; mode: "pause" | "cancel"; cardId: string; printLogId: string; cardTitle: string };
 
-export function KanbanBoard() {
-  const [cards, setCards] = useState<Card[]>(INITIAL_CARDS);
+export function KanbanBoard({ initialCards }: { initialCards: Card[] }) {
+  const [cards, setCards] = useState<Card[]>(initialCards);
   const [activeCard, setActiveCard] = useState<Card | null>(null);
   const [dialog, setDialog] = useState<DialogState>({ open: false });
+  const [, startTransition] = useTransition();
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -387,23 +352,21 @@ export function KanbanBoard() {
 
     if (activeId === overId) return;
 
+    let newColumn: KanbanCol | null = null;
+
     setCards((prev) => {
       const activeCard = prev.find((c) => c.id === activeId);
       if (!activeCard) return prev;
 
-      // Over é uma coluna?
       if (COL_ORDER.includes(overId as KanbanCol)) {
-        return prev.map((c) =>
-          c.id === activeId ? { ...c, column: overId as KanbanCol } : c
-        );
+        newColumn = overId as KanbanCol;
+        return prev.map((c) => (c.id === activeId ? { ...c, column: newColumn! } : c));
       }
 
-      // Over é um card — mover dentro/entre colunas
       const overCard = prev.find((c) => c.id === overId);
       if (!overCard) return prev;
 
       if (activeCard.column === overCard.column) {
-        // Reordenar dentro da mesma coluna
         const colCards = prev.filter((c) => c.column === activeCard.column);
         const others   = prev.filter((c) => c.column !== activeCard.column);
         const oldIdx   = colCards.findIndex((c) => c.id === activeId);
@@ -411,11 +374,13 @@ export function KanbanBoard() {
         return [...others, ...arrayMove(colCards, oldIdx, newIdx)];
       }
 
-      // Mover para outra coluna (na posição do card alvo)
-      return prev.map((c) =>
-        c.id === activeId ? { ...c, column: overCard.column } : c
-      );
+      newColumn = overCard.column;
+      return prev.map((c) => (c.id === activeId ? { ...c, column: newColumn! } : c));
     });
+
+    if (newColumn) {
+      startTransition(async () => { await moveKanbanCard(activeId, newColumn!); });
+    }
   }
 
   // ── Ações de impressão ─────────────────────────────────────
@@ -424,45 +389,66 @@ export function KanbanBoard() {
     cardId: string,
     action: "start" | "pause" | "resume" | "cancel" | "complete"
   ) {
+    const card = cards.find((c) => c.id === cardId);
+    if (!card) return;
+
     if (action === "pause" || action === "cancel") {
-      const card = cards.find((c) => c.id === cardId);
-      if (!card) return;
-      setDialog({ open: true, mode: action === "pause" ? "pause" : "cancel", cardId, cardTitle: card.pieceName });
+      if (!card.printLog?.id) return;
+      setDialog({ open: true, mode: action, cardId, printLogId: card.printLog.id, cardTitle: card.pieceName });
       return;
     }
 
-    setCards((prev) =>
-      prev.map((c) => {
-        if (c.id !== cardId) return c;
-        if (action === "start")    return { ...c, printLog: { status: "STARTED" } };
-        if (action === "resume")   return { ...c, printLog: { status: "RESUMED" } };
-        if (action === "complete") return { ...c, column: "POST_PROD", printLog: { status: "COMPLETED" } };
-        return c;
-      })
-    );
+    if (action === "start") {
+      startTransition(async () => {
+        const res = await startPrint(cardId);
+        if (res?.printLogId) {
+          setCards((prev) => prev.map((c) =>
+            c.id === cardId
+              ? { ...c, column: "PRINTING", printLog: { id: res.printLogId!, status: "STARTED" } }
+              : c
+          ));
+        }
+      });
+      return;
+    }
+
+    if (action === "resume" && card.printLog?.id) {
+      const printLogId = card.printLog.id;
+      startTransition(async () => { await resumePrint(printLogId); });
+      setCards((prev) => prev.map((c) =>
+        c.id === cardId ? { ...c, printLog: { ...c.printLog!, status: "RESUMED" } } : c
+      ));
+      return;
+    }
+
+    if (action === "complete" && card.printLog?.id) {
+      const printLogId = card.printLog.id;
+      startTransition(async () => { await completePrint(printLogId); });
+      setCards((prev) => prev.map((c) =>
+        c.id === cardId ? { ...c, column: "POST_PROD", printLog: { ...c.printLog!, status: "COMPLETED" } } : c
+      ));
+    }
   }
 
   function handleDialogConfirm(reason: string, note: string) {
     if (!dialog.open) return;
-    const { mode, cardId } = dialog;
+    const { mode, cardId, printLogId } = dialog;
 
-    setCards((prev) =>
-      prev.map((c) => {
-        if (c.id !== cardId) return c;
-        if (mode === "pause") {
-          return {
-            ...c,
-            printLog: {
-              status: "PAUSED",
-              reason,
-              note,
-              pausedAt: new Date().toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }),
-            },
-          };
-        }
-        return { ...c, column: "CANCELLED" as KanbanCol, printLog: { status: "CANCELLED", reason, note } };
-      })
-    );
+    if (mode === "pause") {
+      startTransition(async () => { await pausePrint({ printLogId, pauseReason: reason as any, note }); });
+      setCards((prev) => prev.map((c) =>
+        c.id === cardId
+          ? { ...c, printLog: { id: printLogId, status: "PAUSED", reason, note, pausedAt: new Date().toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) } }
+          : c
+      ));
+    } else {
+      startTransition(async () => { await cancelPrint({ printLogId, cancelReason: reason as any, note, notifyClient: false }); });
+      setCards((prev) => prev.map((c) =>
+        c.id === cardId
+          ? { ...c, column: "CANCELLED", printLog: { id: printLogId, status: "CANCELLED", reason, note } }
+          : c
+      ));
+    }
 
     setDialog({ open: false });
   }

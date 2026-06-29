@@ -1,17 +1,12 @@
 import Link from "next/link";
-import { Plus, FileText, Search } from "lucide-react";
+import { Plus, FileText } from "lucide-react";
+import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
+import { redirect } from "next/navigation";
 import type { Metadata } from "next";
+import { OrcamentosFilters } from "./OrcamentosFilters";
 
 export const metadata: Metadata = { title: "Orçamentos" };
-
-const mockQuotes = [
-  { id: "q1", piece: "Suporte Mesa", client: "Ana Lima", total: 85, status: "APPROVED", createdAt: "28/06/2026" },
-  { id: "q2", piece: "Case Raspberry Pi 5", client: "Pedro Costa", total: 120, status: "SENT", createdAt: "27/06/2026" },
-  { id: "q3", piece: "Organizador Gaveta (6x)", client: "Mariana Silva", total: 340, status: "APPROVED", createdAt: "26/06/2026" },
-  { id: "q4", piece: "Engrenagem Moto", client: "Carlos Mendes", total: 95, status: "DRAFT", createdAt: "25/06/2026" },
-  { id: "q5", piece: "Vaso Decorativo Voronoi", client: "Fernanda Rocha", total: 65, status: "REJECTED", createdAt: "24/06/2026" },
-  { id: "q6", piece: "Protetor de Canto (10x)", client: "João Batista", total: 180, status: "EXPIRED", createdAt: "18/06/2026" },
-];
 
 const statusConfig = {
   DRAFT:    { label: "Rascunho", color: "text-text-muted bg-surface-hover border-border" },
@@ -22,7 +17,31 @@ const statusConfig = {
   EXPIRED:  { label: "Expirado", color: "text-warning bg-warning-subtle border-warning/20" },
 };
 
-export default function OrcamentosPage() {
+interface Props {
+  searchParams: Promise<{ q?: string; status?: string }>;
+}
+
+export default async function OrcamentosPage({ searchParams }: Props) {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+
+  const { q, status } = await searchParams;
+
+  const quotes = await prisma.quote.findMany({
+    where: {
+      userId: session.user.id,
+      ...(status ? { status: status as any } : {}),
+      ...(q ? {
+        OR: [
+          { pieceName: { contains: q, mode: "insensitive" } },
+          { client: { name: { contains: q, mode: "insensitive" } } },
+        ],
+      } : {}),
+    },
+    include: { client: { select: { name: true } } },
+    orderBy: { createdAt: "desc" },
+  });
+
   return (
     <>
       {/* Header */}
@@ -30,7 +49,7 @@ export default function OrcamentosPage() {
         <div>
           <h1 className="font-display text-2xl font-bold text-text-primary">Orçamentos</h1>
           <p className="mt-0.5 text-sm text-text-secondary">
-            {mockQuotes.length} orçamentos no total
+            {quotes.length} orçamento{quotes.length !== 1 ? "s" : ""} no total
           </p>
         </div>
         <Link
@@ -42,93 +61,71 @@ export default function OrcamentosPage() {
         </Link>
       </div>
 
-      {/* Filtros e busca */}
-      <div className="mb-5 flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[200px] max-w-sm">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
-          <input
-            type="text"
-            placeholder="Buscar por peça ou cliente..."
-            className="h-9 w-full rounded-lg border border-border bg-surface pl-9 pr-3 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-          />
-        </div>
-
-        <div className="flex items-center gap-2">
-          {(["Todos", "Aprovado", "Enviado", "Rascunho", "Expirado"] as const).map((f) => (
-            <button
-              key={f}
-              className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
-                f === "Todos"
-                  ? "border-primary bg-primary-subtle text-primary"
-                  : "border-border bg-surface text-text-secondary hover:border-primary/50 hover:text-text-primary"
-              }`}
-            >
-              {f}
-            </button>
-          ))}
-        </div>
-      </div>
+      <OrcamentosFilters />
 
       {/* Tabela */}
-      <div className="rounded-xl border border-border bg-surface overflow-hidden">
-        <div className="hidden grid-cols-[auto_1fr_1fr_120px_120px_40px] items-center gap-4 border-b border-border px-5 py-3 sm:grid">
-          <span className="text-xs font-medium text-text-muted">#</span>
-          <span className="text-xs font-medium text-text-muted">Peça / Cliente</span>
-          <span className="text-xs font-medium text-text-muted">Data</span>
-          <span className="text-xs font-medium text-text-muted">Status</span>
-          <span className="text-xs font-medium text-text-muted text-right">Total</span>
-          <span />
-        </div>
+      {quotes.length > 0 ? (
+        <div className="rounded-xl border border-border bg-surface overflow-hidden">
+          <div className="hidden grid-cols-[auto_1fr_1fr_120px_120px_40px] items-center gap-4 border-b border-border px-5 py-3 sm:grid">
+            <span className="text-xs font-medium text-text-muted">#</span>
+            <span className="text-xs font-medium text-text-muted">Peça / Cliente</span>
+            <span className="text-xs font-medium text-text-muted">Data</span>
+            <span className="text-xs font-medium text-text-muted">Status</span>
+            <span className="text-xs font-medium text-text-muted text-right">Total</span>
+            <span />
+          </div>
 
-        <div className="divide-y divide-border">
-          {mockQuotes.map((q, i) => {
-            const status = statusConfig[q.status as keyof typeof statusConfig];
-            return (
-              <Link
-                key={q.id}
-                href={`/orcamentos/${q.id}`}
-                className="flex flex-col gap-2 px-5 py-4 transition-colors hover:bg-surface-hover sm:grid sm:grid-cols-[auto_1fr_1fr_120px_120px_40px] sm:items-center sm:gap-4"
-              >
-                <span className="text-xs text-text-muted font-mono">
-                  {String(i + 1).padStart(3, "0")}
-                </span>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-text-primary truncate">{q.piece}</p>
-                  <p className="text-xs text-text-muted">{q.client}</p>
-                </div>
-                <span className="text-xs text-text-muted">{q.createdAt}</span>
-                <span
-                  className={`inline-flex w-fit items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${status.color}`}
+          <div className="divide-y divide-border">
+            {quotes.map((q, i) => {
+              const status = statusConfig[q.status as keyof typeof statusConfig] ?? statusConfig.DRAFT;
+              return (
+                <Link
+                  key={q.id}
+                  href={`/orcamentos/${q.id}`}
+                  className="flex flex-col gap-2 px-5 py-4 transition-colors hover:bg-surface-hover sm:grid sm:grid-cols-[auto_1fr_1fr_120px_120px_40px] sm:items-center sm:gap-4"
                 >
-                  {status.label}
-                </span>
-                <span className="text-sm font-semibold text-text-primary sm:text-right">
-                  {q.total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                </span>
-                <FileText className="hidden h-4 w-4 text-text-muted sm:block" />
-              </Link>
-            );
-          })}
+                  <span className="text-xs text-text-muted font-mono">
+                    {String(i + 1).padStart(3, "0")}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-text-primary truncate">{q.pieceName}</p>
+                    <p className="text-xs text-text-muted">{q.client?.name ?? "Sem cliente"}</p>
+                  </div>
+                  <span className="text-xs text-text-muted">
+                    {new Date(q.createdAt).toLocaleDateString("pt-BR")}
+                  </span>
+                  <span className={`inline-flex w-fit items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${status.color}`}>
+                    {status.label}
+                  </span>
+                  <span className="text-sm font-semibold text-text-primary sm:text-right">
+                    {q.totalPrice.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                  </span>
+                  <FileText className="hidden h-4 w-4 text-text-muted sm:block" />
+                </Link>
+              );
+            })}
+          </div>
         </div>
-      </div>
-
-      {/* Empty state (oculto com mock) */}
-      {mockQuotes.length === 0 && (
+      ) : (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-20 text-center">
           <FileText className="mb-4 h-10 w-10 text-text-muted" />
           <p className="font-display text-base font-semibold text-text-primary">
-            Nenhum orçamento ainda
+            {q || status ? "Nenhum orçamento encontrado" : "Nenhum orçamento ainda"}
           </p>
           <p className="mt-1 text-sm text-text-muted">
-            Crie seu primeiro orçamento e envie para o cliente em minutos.
+            {q || status
+              ? "Tente ajustar os filtros de busca."
+              : "Crie seu primeiro orçamento e envie para o cliente em minutos."}
           </p>
-          <Link
-            href="/orcamentos/novo"
-            className="mt-6 flex items-center gap-2 rounded-lg gradient-primary px-4 py-2.5 text-sm font-semibold text-white"
-          >
-            <Plus className="h-4 w-4" />
-            Novo Orçamento
-          </Link>
+          {!q && !status && (
+            <Link
+              href="/orcamentos/novo"
+              className="mt-6 flex items-center gap-2 rounded-lg gradient-primary px-4 py-2.5 text-sm font-semibold text-white"
+            >
+              <Plus className="h-4 w-4" />
+              Novo Orçamento
+            </Link>
+          )}
         </div>
       )}
     </>
