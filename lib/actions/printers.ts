@@ -13,6 +13,7 @@ const printerSchema = z.object({
   purchasePrice:        z.coerce.number().positive(),
   estimatedHours:       z.coerce.number().positive(),
   monthlyMaintenance:   z.coerce.number().min(0),
+  totalHours:           z.coerce.number().min(0).optional(),
 });
 
 async function getUserId() {

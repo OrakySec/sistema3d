@@ -8,6 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { CrudDialog, FormField, DialogActions, inputCls } from "@/components/shared/CrudDialog";
 import { createPrinter, updatePrinter, togglePrinterActive, deletePrinter } from "@/lib/actions/printers";
 import { formatBRL } from "@/lib/calculations";
+import { InfoTip } from "@/components/shared/InfoTip";
 
 const printerSchema = z.object({
   name:               z.string().min(2, "Nome obrigatório"),
@@ -16,6 +17,7 @@ const printerSchema = z.object({
   purchasePrice:      z.coerce.number().positive("Informe o preço"),
   estimatedHours:     z.coerce.number().positive("Informe a vida útil"),
   monthlyMaintenance: z.coerce.number().min(0),
+  totalHours:         z.coerce.number().min(0).optional(),
 });
 type PrinterForm = z.infer<typeof printerSchema>;
 
@@ -86,6 +88,17 @@ function PrinterDialog({ printer, onClose }: { printer?: PrinterModel; onClose: 
               <input {...register("monthlyMaintenance")} type="number" min={0} step={0.01} placeholder="50" className={`${inputCls} pl-8`} />
             </div>
           </FormField>
+          <div className="flex flex-col gap-1.5 sm:col-span-2">
+            <div className="flex items-center gap-1.5">
+              <label className="text-sm font-medium text-text-primary">Horas já usadas</label>
+              <InfoTip content="Se a impressora já tinha uso antes de cadastrar aqui (comprada usada ou já em operação), informe quantas horas ela já imprimiu. Isso ajusta corretamente o cálculo de vida útil restante." />
+            </div>
+            <div className="relative">
+              <input {...register("totalHours")} type="number" min={0} placeholder="0 (deixe em branco se for nova)" className={inputCls} />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-text-muted">h</span>
+            </div>
+            {errors.totalHours && <p className="text-xs text-error">{errors.totalHours.message}</p>}
+          </div>
         </div>
         {pp > 0 && eh > 0 && (
           <div className="mt-5 rounded-xl border border-primary/20 bg-primary-subtle p-4 flex items-center justify-between">
