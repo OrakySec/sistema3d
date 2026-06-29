@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Plus, Package, Search, Pencil, Trash2, AlertTriangle } from "lucide-react";
+import { Plus, Package, Search, Pencil, Trash2, AlertTriangle, Copy } from "lucide-react";
 import { useForm, type Resolver } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -150,6 +150,19 @@ export function EstoqueClient({ initialFilaments }: { initialFilaments: Filament
     if (!confirm("Remover este filamento?")) return;
     startTransition(() => deleteFilament(id));
   }
+  function handleDuplicate(f: Filament) {
+    const fd = new FormData();
+    fd.append("name", `${f.name} (cópia)`);
+    fd.append("brand", f.brand ?? "");
+    fd.append("type", f.type);
+    fd.append("color", f.color ?? "");
+    fd.append("colorHex", f.colorHex ?? "");
+    fd.append("purchasedGrams", String(f.purchasedGrams));
+    fd.append("currentGrams", String(f.purchasedGrams)); // cópia começa com saldo cheio
+    fd.append("costPerKg", String(f.costPerKg));
+    fd.append("lowStockAlert", String(f.lowStockAlert));
+    startTransition(async () => { await createFilament(fd); });
+  }
   function openEdit(f: Filament) { setEditing(f); setDialogOpen(true); }
   function openNew()              { setEditing(undefined); setDialogOpen(true); }
   function closeDialog()          { setDialogOpen(false); setEditing(undefined); }
@@ -244,11 +257,15 @@ export function EstoqueClient({ initialFilaments }: { initialFilaments: Filament
                   {(f.costPerKg / 1000).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}/g
                 </span>
                 <div className="hidden sm:flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 justify-end">
-                  <button onClick={() => openEdit(f)}
+                  <button onClick={() => handleDuplicate(f)} title="Duplicar filamento"
+                    className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted hover:bg-surface hover:text-primary transition-colors">
+                    <Copy className="h-3.5 w-3.5" />
+                  </button>
+                  <button onClick={() => openEdit(f)} title="Editar"
                     className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted hover:bg-surface hover:text-primary transition-colors">
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
-                  <button onClick={() => handleDelete(f.id)}
+                  <button onClick={() => handleDelete(f.id)} title="Excluir"
                     className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted hover:bg-error-subtle hover:text-error transition-colors">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
