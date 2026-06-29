@@ -62,12 +62,13 @@ jobs:
 
     steps:
       - name: Redeploy stack via Portainer webhook
+        if: ${{ secrets.PORTAINER_WEBHOOK_URL != '' }}
         run: |
           curl -s -X POST "${{ secrets.PORTAINER_WEBHOOK_URL }}" \
             -H "Content-Type: application/json" \
             --max-time 30 \
             --fail-with-body
-        env:
-          # Configure em: Settings → Secrets → PORTAINER_WEBHOOK_URL
-          # Obtido em: Portainer → Stacks → sistema3d → Webhook URL
-          PORTAINER_WEBHOOK_URL: ${{ secrets.PORTAINER_WEBHOOK_URL }}
+
+      - name: Skip Portainer deploy (webhook not configured)
+        if: ${{ secrets.PORTAINER_WEBHOOK_URL == '' }}
+        run: echo "ℹ️ PORTAINER_WEBHOOK_URL não configurado — skipping deploy. Adicione o secret em Settings → Secrets → Actions."
