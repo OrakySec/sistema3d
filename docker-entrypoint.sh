@@ -2,7 +2,7 @@
 set -e
 
 echo "▶ Aplicando schema no banco..."
-node node_modules/prisma/build/index.js db push --accept-data-loss
+node node_modules/prisma/build/index.js db push --skip-generate
 
 echo "▶ Iniciando aplicação..."
 exec node server.js
