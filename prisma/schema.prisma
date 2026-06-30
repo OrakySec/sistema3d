@@ -537,15 +537,16 @@ model PieceTemplate {
 // ─────────────────────────────────────────────────────────────
 
 model Expense {
-  id          String          @id @default(cuid())
-  userId      String
-  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  category    ExpenseCategory
-  description String
-  amount      Float
-  date        DateTime
-  receiptUrl  String?         // Nota fiscal no MinIO
-  notes       String?
+  id             String          @id @default(cuid())
+  userId         String
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category       ExpenseCategory
+  customCategory String?         // Label personalizado quando category = OTHER
+  description    String
+  amount         Float
+  date           DateTime
+  receiptUrl     String?
+  notes          String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

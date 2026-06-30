@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useTransition } from "react";
+import { useState, useMemo, useTransition, useEffect } from "react";
 import {
   DollarSign, TrendingUp, TrendingDown, Wallet,
   Plus, ArrowUpRight, ArrowDownRight,
@@ -33,11 +33,12 @@ type ExpenseCategory = typeof EXPENSE_CATEGORIES[number]["value"];
 // ─── Schema ───────────────────────────────────────────────────
 
 const expenseSchema = z.object({
-  description: z.string().min(2, "Descrição obrigatória"),
-  category:    z.enum(EXPENSE_CATEGORIES.map((c) => c.value) as [ExpenseCategory, ...ExpenseCategory[]]),
-  amount:      z.coerce.number().positive("Valor obrigatório"),
-  date:        z.string().min(1, "Data obrigatória"),
-  notes:       z.string().optional(),
+  description:    z.string().min(2, "Descrição obrigatória"),
+  category:       z.enum(EXPENSE_CATEGORIES.map((c) => c.value) as [ExpenseCategory, ...ExpenseCategory[]]),
+  customCategory: z.string().optional(),
+  amount:         z.coerce.number().positive("Valor obrigatório"),
+  date:           z.string().min(1, "Data obrigatória"),
+  notes:          z.string().optional(),
 });
 type ExpenseForm = z.infer<typeof expenseSchema>;
 
@@ -47,6 +48,7 @@ interface Expense {
   id: string;
   description: string;
   category: ExpenseCategory;
+  customCategory?: string;
   amount: number;
   date: string;
   notes?: string;
@@ -75,12 +77,14 @@ interface FinanceiroClientProps {
 
 function ExpenseDialog({ expense, onClose }: { expense?: Expense; onClose: () => void }) {
   const [pending, startTransition] = useTransition();
-  const { register, handleSubmit, formState: { errors } } = useForm<ExpenseForm>({
+  const { register, handleSubmit, watch, formState: { errors } } = useForm<ExpenseForm>({
     resolver: zodResolver(expenseSchema) as Resolver<ExpenseForm>,
     defaultValues: expense
       ? { ...expense, date: expense.date.split("T")[0] }
       : { date: new Date().toISOString().split("T")[0], category: "FILAMENT" },
   });
+
+  const selectedCategory = watch("category");
 
   function onSubmit(data: ExpenseForm) {
     const fd = new FormData();
@@ -125,7 +129,17 @@ function ExpenseDialog({ expense, onClose }: { expense?: Expense; onClose: () =>
             </div>
           </FormField>
 
-          <FormField label="Data" error={errors.date?.message} className="sm:col-span-2">
+          {selectedCategory === "OTHER" && (
+            <FormField label="Nome da categoria" error={errors.customCategory?.message} className="sm:col-span-2">
+              <input
+                {...register("customCategory")}
+                placeholder="Ex: Curso, Software, Aluguel..."
+                className={inputCls}
+              />
+            </FormField>
+          )}
+
+          <FormField label="Data" error={errors.date?.message} className={selectedCategory === "OTHER" ? "sm:col-span-2" : undefined}>
             <input {...register("date")} type="date" className={inputCls} />
           </FormField>
 
@@ -235,7 +249,8 @@ export function FinanceiroClient({ initialRevenues, initialExpenses, monthlyData
   function closeDialog()         { setDialogOpen(false); setEditing(undefined); }
 
   const catColor = (cat: ExpenseCategory) => EXPENSE_CATEGORIES.find((c) => c.value === cat)?.color ?? "#6B7280";
-  const catLabel = (cat: ExpenseCategory) => EXPENSE_CATEGORIES.find((c) => c.value === cat)?.label ?? cat;
+  const catLabel = (cat: ExpenseCategory, custom?: string) =>
+    cat === "OTHER" && custom ? custom : (EXPENSE_CATEGORIES.find((c) => c.value === cat)?.label ?? cat);
 
   return (
     <>
@@ -442,7 +457,7 @@ export function FinanceiroClient({ initialRevenues, initialExpenses, monthlyData
                     className="hidden sm:inline-flex w-fit items-center rounded-full border px-2.5 py-0.5 text-xs font-medium"
                     style={{ borderColor: catColor(e.category) + "40", color: catColor(e.category), backgroundColor: catColor(e.category) + "15" }}
                   >
-                    {catLabel(e.category)}
+                    {catLabel(e.category, e.customCategory)}
                   </span>
                   <p className="text-sm font-semibold text-error sm:text-right">
                     -{e.amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
@@ -472,6 +487,7 @@ export function FinanceiroClient({ initialRevenues, initialExpenses, monthlyData
               <span className="text-sm font-medium text-text-secondary">
                 Total {filterCat !== "ALL" && `(${catLabel(filterCat as ExpenseCategory)})`}
               </span>
+
               <span className="font-display text-lg font-bold text-error">
                 -{filteredExpenses.reduce((a, e) => a + e.amount, 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
               </span>

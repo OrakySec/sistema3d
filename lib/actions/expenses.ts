@@ -12,11 +12,12 @@ const EXPENSE_CATEGORIES = [
 ] as const;
 
 const expenseSchema = z.object({
-  description: z.string().min(2),
-  category:    z.enum(EXPENSE_CATEGORIES),
-  amount:      z.coerce.number().positive(),
-  date:        z.string().transform((d) => new Date(d + "T12:00:00")),
-  notes:       z.string().optional(),
+  description:    z.string().min(2),
+  category:       z.enum(EXPENSE_CATEGORIES),
+  customCategory: z.string().optional(),
+  amount:         z.coerce.number().positive(),
+  date:           z.string().transform((d) => new Date(d + "T12:00:00")),
+  notes:          z.string().optional(),
 });
 
 async function getUserId() {
@@ -27,10 +28,18 @@ async function getUserId() {
 
 export async function createExpense(formData: FormData) {
   const userId = await getUserId();
-  const parsed = expenseSchema.safeParse(Object.fromEntries(formData));
+  const raw = Object.fromEntries(formData);
+  const parsed = expenseSchema.safeParse(raw);
   if (!parsed.success) return { error: "Dados inválidos." };
 
-  await prisma.expense.create({ data: { userId, ...parsed.data } });
+  const { customCategory, ...data } = parsed.data;
+  await prisma.expense.create({
+    data: {
+      userId,
+      ...data,
+      customCategory: data.category === "OTHER" ? (customCategory || null) : null,
+    },
+  });
   revalidatePath("/financeiro");
   return { ok: true };
 }
@@ -40,7 +49,14 @@ export async function updateExpense(expenseId: string, formData: FormData) {
   const parsed = expenseSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: "Dados inválidos." };
 
-  await prisma.expense.update({ where: { id: expenseId, userId }, data: parsed.data });
+  const { customCategory, ...data } = parsed.data;
+  await prisma.expense.update({
+    where: { id: expenseId, userId },
+    data: {
+      ...data,
+      customCategory: data.category === "OTHER" ? (customCategory || null) : null,
+    },
+  });
   revalidatePath("/financeiro");
   return { ok: true };
 }
