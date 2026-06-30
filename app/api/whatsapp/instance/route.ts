@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
-import { prisma } from "@/lib/prisma";
+import { auth }         from "@/auth";
+import { prisma }       from "@/lib/prisma";
 
 const EVO_URL = process.env.EVOLUTION_API_URL!;
 const EVO_KEY = process.env.EVOLUTION_API_KEY!;
@@ -9,13 +9,17 @@ function evoHeaders() {
   return { "Content-Type": "application/json", apikey: EVO_KEY };
 }
 
-// GET — busca status da instância do usuário
+async function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+// GET — busca status da instância
 export async function GET() {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
   const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
+    where:  { id: session.user.id },
     select: { evolutionInstance: true, evolutionConnected: true },
   });
 
@@ -24,13 +28,12 @@ export async function GET() {
   }
 
   try {
-    const res = await fetch(`${EVO_URL}/instance/connectionState/${user.evolutionInstance}`, {
+    const res  = await fetch(`${EVO_URL}/instance/connectionState/${user.evolutionInstance}`, {
       headers: evoHeaders(),
     });
     const data = await res.json();
     const connected = data?.instance?.state === "open";
 
-    // Atualiza status no banco
     await prisma.user.update({
       where: { id: session.user.id },
       data:  { evolutionConnected: connected },
@@ -54,31 +57,56 @@ export async function POST() {
   const instanceName = `user_${session.user.id.slice(0, 8)}`;
 
   try {
-    const res = await fetch(`${EVO_URL}/instance/create`, {
+    // Tenta deletar instância existente para garantir estado limpo
+    await fetch(`${EVO_URL}/instance/delete/${instanceName}`, {
+      method:  "DELETE",
+      headers: evoHeaders(),
+    }).catch(() => {});
+
+    await sleep(500);
+
+    // Cria nova instância
+    const createRes = await fetch(`${EVO_URL}/instance/create`, {
       method:  "POST",
       headers: evoHeaders(),
       body: JSON.stringify({
         instanceName,
-        integration: "WHATSAPP-BAILEYS",
-        qrcode:      true,
-        reject_call: false,
+        integration:  "WHATSAPP-BAILEYS",
+        qrcode:       true,
+        reject_call:  false,
         groupsIgnore: false,
       }),
     });
 
-    const data = await res.json();
+    const createData = await createRes.json();
+    console.log("[whatsapp/instance POST] create response keys:", Object.keys(createData));
 
-    // Salva a instância no usuário
     await prisma.user.update({
       where: { id: session.user.id },
       data:  { evolutionInstance: instanceName, evolutionConnected: false },
     });
 
-    return NextResponse.json({
-      instance: instanceName,
-      qrcode:   data?.qrcode?.base64 ?? data?.base64 ?? null,
-      pairingCode: data?.qrcode?.pairingCode ?? null,
-    });
+    // Tenta pegar QR da resposta de criação
+    let qrcode = createData?.qrcode?.base64 ?? createData?.base64 ?? null;
+
+    // Se não veio, aguarda e busca via /connect
+    if (!qrcode) {
+      await sleep(2000);
+      for (let i = 0; i < 3; i++) {
+        if (i > 0) await sleep(1500);
+        try {
+          const qrRes  = await fetch(`${EVO_URL}/instance/connect/${instanceName}`, {
+            headers: evoHeaders(),
+          });
+          const qrData = await qrRes.json();
+          console.log(`[whatsapp/instance POST] connect attempt ${i + 1} keys:`, Object.keys(qrData));
+          qrcode = qrData?.base64 ?? qrData?.qrcode?.base64 ?? null;
+          if (qrcode) break;
+        } catch {}
+      }
+    }
+
+    return NextResponse.json({ instance: instanceName, qrcode });
   } catch (err) {
     console.error("[whatsapp/instance POST]", err);
     return NextResponse.json({ error: "Erro ao criar instância" }, { status: 500 });
