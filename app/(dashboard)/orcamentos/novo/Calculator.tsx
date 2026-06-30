@@ -4,11 +4,12 @@ import { useState, useMemo, useTransition } from "react";
 import Link from "next/link";
 import {
   ChevronLeft, Calculator as CalcIcon, Package, Printer as PrinterIcon,
-  TrendingUp, Calendar, Plus, Trash2, Copy, Send, Save, Info, User,
+  TrendingUp, Calendar, Plus, Trash2, Copy, Send, Save, Info, User, X, Loader2,
 } from "lucide-react";
 import { calculateQuote, formatBRL, type QuoteBreakdown } from "@/lib/calculations";
 import { InfoTip } from "@/components/shared/InfoTip";
 import { createQuote } from "@/lib/actions/quotes";
+import { createClientQuick } from "@/lib/actions/clients";
 
 // ─── Props vindo do Server Component ─────────────────────────
 
@@ -125,6 +126,13 @@ export function Calculator({ printers, filaments, clients, settings }: Calculato
   // Versões
   const [versions, setVersions] = useState<QuoteVersion[]>([]);
 
+  // Clientes (pode crescer com criação inline)
+  const [localClients, setLocalClients] = useState<ClientOption[]>(clients);
+  const [showNewClient, setShowNewClient] = useState(false);
+  const [newClientName, setNewClientName] = useState("");
+  const [newClientWpp, setNewClientWpp]   = useState("");
+  const [creatingClient, setCreatingClient] = useState(false);
+
   const printer  = printers.find((p) => p.id === printerId)  ?? printers[0];
   const filament = filaments.find((f) => f.id === filamentId) ?? filaments[0];
 
@@ -176,6 +184,20 @@ export function Calculator({ printers, filaments, clients, settings }: Calculato
       }
       return updated;
     }));
+  }
+
+  async function handleCreateClient() {
+    if (!newClientName.trim()) return;
+    setCreatingClient(true);
+    const res = await createClientQuick(newClientName, newClientWpp);
+    if (res.ok && res.client) {
+      setLocalClients((prev) => [...prev, res.client!]);
+      setClientId(res.client.id);
+      setShowNewClient(false);
+      setNewClientName("");
+      setNewClientWpp("");
+    }
+    setCreatingClient(false);
   }
 
   function handleSubmit(status: "DRAFT" | "SENT") {
@@ -254,10 +276,53 @@ export function Calculator({ printers, filaments, clients, settings }: Calculato
                   onChange={(e) => setPieceName(e.target.value)} className={inputCls} />
               </Field>
               <Field label="Cliente" tip="Opcional — vincula o orçamento a um cliente cadastrado.">
-                <select value={clientId} onChange={(e) => setClientId(e.target.value)} className={selectCls}>
-                  <option value="">Sem cliente</option>
-                  {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
+                <div className="flex gap-2">
+                  <select value={clientId} onChange={(e) => setClientId(e.target.value)} className={selectCls}>
+                    <option value="">Sem cliente</option>
+                    {localClients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setShowNewClient((v) => !v)}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-dashed border-border bg-background text-text-muted transition-colors hover:border-primary hover:text-primary"
+                    title="Novo cliente"
+                  >
+                    {showNewClient ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                  </button>
+                </div>
+                {showNewClient && (
+                  <div className="mt-2 rounded-lg border border-primary/20 bg-primary-subtle p-3 animate-fade-in">
+                    <p className="mb-2 text-xs font-semibold text-text-primary">Novo cliente</p>
+                    <div className="flex flex-col gap-2">
+                      <input
+                        type="text"
+                        placeholder="Nome *"
+                        value={newClientName}
+                        onChange={(e) => setNewClientName(e.target.value)}
+                        className={inputCls}
+                        onKeyDown={(e) => e.key === "Enter" && handleCreateClient()}
+                        autoFocus
+                      />
+                      <input
+                        type="text"
+                        placeholder="WhatsApp (opcional)"
+                        value={newClientWpp}
+                        onChange={(e) => setNewClientWpp(e.target.value)}
+                        className={inputCls}
+                        onKeyDown={(e) => e.key === "Enter" && handleCreateClient()}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleCreateClient}
+                        disabled={!newClientName.trim() || creatingClient}
+                        className="flex items-center justify-center gap-2 rounded-lg gradient-primary py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                      >
+                        {creatingClient ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                        {creatingClient ? "Criando..." : "Criar e selecionar"}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </Field>
               <Field label="Descrição / Observações">
                 <textarea placeholder="Cor, material, acabamento..." value={description}

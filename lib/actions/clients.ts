@@ -30,16 +30,25 @@ export async function createClient(formData: FormData) {
   const tagList = tags ? tags.split(",").map((t) => t.trim()).filter(Boolean) : [];
 
   await prisma.client.create({
-    data: {
-      userId,
-      ...data,
-      email: email || null,
-      tags: tagList,
-    },
+    data: { userId, ...data, email: email || null, tags: tagList },
   });
 
   revalidatePath("/clientes");
   return { ok: true };
+}
+
+// Criação rápida — retorna id e name para uso inline em outros formulários
+export async function createClientQuick(name: string, whatsapp?: string) {
+  const userId = await getUserId();
+  if (!name?.trim()) return { error: "Nome obrigatório." };
+
+  const client = await prisma.client.create({
+    data: { userId, name: name.trim(), whatsapp: whatsapp?.trim() || null, tags: [] },
+    select: { id: true, name: true },
+  });
+
+  revalidatePath("/clientes");
+  return { ok: true, client };
 }
 
 export async function updateClient(clientId: string, formData: FormData) {
