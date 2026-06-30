@@ -15,6 +15,38 @@ async function getUserId() {
   return session.user.id;
 }
 
+export async function deleteKanbanCard(cardId: string) {
+  const userId = await getUserId();
+  const card = await prisma.kanbanCard.findFirst({ where: { id: cardId, userId } });
+  if (!card) return { error: "Card não encontrado." };
+  await prisma.kanbanCard.delete({ where: { id: cardId } });
+  revalidatePath("/producao");
+  return { ok: true };
+}
+
+const updateCardSchema = z.object({
+  dueDate: z.string().optional(),
+  notes:   z.string().optional(),
+  tags:    z.string().optional(), // JSON array string
+});
+
+export async function updateKanbanCard(cardId: string, data: z.infer<typeof updateCardSchema>) {
+  const userId = await getUserId();
+  const card = await prisma.kanbanCard.findFirst({ where: { id: cardId, userId } });
+  if (!card) return { error: "Card não encontrado." };
+
+  await prisma.kanbanCard.update({
+    where: { id: cardId },
+    data: {
+      dueDate: data.dueDate ? new Date(data.dueDate) : null,
+      notes:   data.notes ?? null,
+      tags:    data.tags ? JSON.parse(data.tags) : [],
+    },
+  });
+  revalidatePath("/producao");
+  return { ok: true };
+}
+
 export async function startPrint(cardId: string) {
   const userId = await getUserId();
 

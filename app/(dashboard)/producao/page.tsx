@@ -36,6 +36,7 @@ export default async function ProducaoPage() {
       totalPrice:  c.quote?.totalPrice ?? 0,
       dueDate:     c.dueDate ? new Date(c.dueDate).toLocaleDateString("pt-BR") : undefined,
       tags:        c.tags,
+      notes:       c.notes ?? undefined,
       printLog: log ? {
         id:        log.id,
         status:    log.status,

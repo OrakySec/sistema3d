@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useTransition } from "react";
+import { useState, useCallback, useTransition, useRef, useEffect } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -20,32 +20,22 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
-  Play,
-  Pause,
-  RotateCcw,
-  XCircle,
-  CheckCircle2,
-  Clock,
-  GripVertical,
-  User,
-  Printer,
-  MoreHorizontal,
-  Plus,
+  Play, Pause, RotateCcw, XCircle, CheckCircle2,
+  Clock, GripVertical, User, Printer, MoreHorizontal,
+  Pencil, Trash2, X, Tag,
 } from "lucide-react";
 import { PrintControlDialog } from "./PrintControlDialog";
 import { cn } from "@/lib/utils";
-import { moveKanbanCard, startPrint, pausePrint, resumePrint, cancelPrint, completePrint } from "@/lib/actions/kanban";
+import {
+  moveKanbanCard, startPrint, pausePrint, resumePrint,
+  cancelPrint, completePrint, deleteKanbanCard, updateKanbanCard,
+} from "@/lib/actions/kanban";
 
 // ─── Tipos ───────────────────────────────────────────────────
 
 type KanbanCol =
-  | "WAITING"
-  | "APPROVED"
-  | "PRINTING"
-  | "POST_PROD"
-  | "READY"
-  | "DELIVERED"
-  | "CANCELLED";
+  | "WAITING" | "APPROVED" | "PRINTING" | "POST_PROD"
+  | "READY"   | "DELIVERED" | "CANCELLED";
 
 type PrintStatus = "QUEUED" | "STARTED" | "PAUSED" | "RESUMED" | "COMPLETED" | "CANCELLED";
 
@@ -67,51 +57,224 @@ export interface Card {
   dueDate?: string;
   printLog?: PrintLog;
   tags?: string[];
+  notes?: string;
 }
 
 // ─── Configuração das colunas ────────────────────────────────
 
-interface ColConfig {
-  label: string;
-  emoji: string;
-  colorClass: string;
-  dotClass: string;
-}
+interface ColConfig { label: string; emoji: string; colorClass: string }
 
 const COLUMNS: Record<KanbanCol, ColConfig> = {
-  WAITING:   { label: "Aguardando",    emoji: "⏳", colorClass: "border-border",         dotClass: "bg-text-muted" },
-  APPROVED:  { label: "Aprovado",      emoji: "✅", colorClass: "border-success/30",     dotClass: "bg-success" },
-  PRINTING:  { label: "Em Produção",   emoji: "🖨️", colorClass: "border-primary/30",     dotClass: "bg-primary" },
-  POST_PROD: { label: "Pós-Produção",  emoji: "🎨", colorClass: "border-info/30",        dotClass: "bg-info" },
-  READY:     { label: "Pronto",        emoji: "📦", colorClass: "border-warning/30",     dotClass: "bg-warning" },
-  DELIVERED: { label: "Entregue",      emoji: "🏁", colorClass: "border-success/20",     dotClass: "bg-success/60" },
-  CANCELLED: { label: "Cancelado",     emoji: "❌", colorClass: "border-error/20",       dotClass: "bg-error/60" },
+  WAITING:   { label: "Aguardando",   emoji: "⏳", colorClass: "border-border" },
+  APPROVED:  { label: "Aprovado",     emoji: "✅", colorClass: "border-success/30" },
+  PRINTING:  { label: "Em Produção",  emoji: "🖨️", colorClass: "border-primary/30" },
+  POST_PROD: { label: "Pós-Produção", emoji: "🎨", colorClass: "border-info/30" },
+  READY:     { label: "Pronto",       emoji: "📦", colorClass: "border-warning/30" },
+  DELIVERED: { label: "Entregue",     emoji: "🏁", colorClass: "border-success/20" },
+  CANCELLED: { label: "Cancelado",    emoji: "❌", colorClass: "border-error/20" },
 };
 
 const COL_ORDER: KanbanCol[] = [
   "WAITING", "APPROVED", "PRINTING", "POST_PROD", "READY", "DELIVERED", "CANCELLED",
 ];
 
+// ─── Dropdown de 3 pontos ─────────────────────────────────────
+
+function CardMenu({
+  onEdit,
+  onDelete,
+}: {
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative shrink-0">
+      <button
+        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
+        className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted hover:bg-surface-hover hover:text-text-primary transition-colors"
+      >
+        <MoreHorizontal className="h-4 w-4" />
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-8 z-50 w-36 rounded-xl border border-border bg-surface shadow-lg py-1">
+          <button
+            onClick={(e) => { e.stopPropagation(); setOpen(false); onEdit(); }}
+            className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-text-secondary hover:bg-surface-hover hover:text-text-primary transition-colors"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+            Editar
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); setOpen(false); onDelete(); }}
+            className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-error hover:bg-error-subtle transition-colors"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Excluir
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Dialog de edição do card ─────────────────────────────────
+
+const inputCls = "w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20";
+
+function EditCardDialog({
+  card,
+  onClose,
+  onSave,
+}: {
+  card: Card;
+  onClose: () => void;
+  onSave: (dueDate: string, notes: string, tags: string[]) => void;
+}) {
+  const [pending, startTransition] = useTransition();
+  const [dueDate, setDueDate] = useState(
+    card.dueDate
+      ? (() => { const [d, m, y] = card.dueDate!.split("/"); return `${y}-${m}-${d}`; })()
+      : ""
+  );
+  const [notes, setNotes]     = useState(card.notes ?? "");
+  const [tagInput, setTagInput] = useState("");
+  const [tags, setTags]       = useState<string[]>(card.tags ?? []);
+
+  function addTag() {
+    const t = tagInput.trim();
+    if (t && !tags.includes(t)) setTags((prev) => [...prev, t]);
+    setTagInput("");
+  }
+
+  function removeTag(t: string) {
+    setTags((prev) => prev.filter((x) => x !== t));
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    startTransition(async () => {
+      await updateKanbanCard(card.id, { dueDate: dueDate || undefined, notes: notes || undefined, tags: JSON.stringify(tags) });
+      onSave(dueDate, notes, tags);
+      onClose();
+    });
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-md rounded-2xl border border-border bg-surface shadow-2xl">
+        <div className="flex items-center justify-between border-b border-border px-6 py-4">
+          <div>
+            <h2 className="font-display text-base font-bold text-text-primary">Editar Card</h2>
+            <p className="text-xs text-text-muted mt-0.5 truncate max-w-xs">{card.pieceName}</p>
+          </div>
+          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg text-text-muted hover:bg-surface-hover hover:text-text-primary transition-colors">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-4">
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-text-secondary">Prazo</label>
+            <input
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              className={inputCls}
+            />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-text-secondary">Observações</label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={3}
+              placeholder="Detalhes adicionais do pedido..."
+              className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-text-secondary">Tags</label>
+            <div className="flex gap-2">
+              <input
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTag(); } }}
+                placeholder="Digite e pressione Enter"
+                className={inputCls}
+              />
+              <button
+                type="button"
+                onClick={addTag}
+                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-medium text-text-secondary hover:bg-surface-hover transition-colors"
+              >
+                <Tag className="h-3.5 w-3.5" />
+                Add
+              </button>
+            </div>
+            {tags.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {tags.map((t) => (
+                  <span key={t} className="flex items-center gap-1 rounded-full border border-border bg-surface-hover px-2.5 py-0.5 text-xs text-text-secondary">
+                    {t}
+                    <button type="button" onClick={() => removeTag(t)} className="text-text-muted hover:text-error transition-colors">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={onClose} className="flex-1 rounded-lg border border-border py-2.5 text-sm font-medium text-text-secondary hover:bg-surface-hover transition-colors">
+              Cancelar
+            </button>
+            <button type="submit" disabled={pending} className="flex-1 rounded-lg bg-primary py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50">
+              {pending ? "Salvando..." : "Salvar"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // ─── Card arrastável ─────────────────────────────────────────
 
 function SortableCard({
   card,
   onPrintAction,
+  onEdit,
+  onDelete,
   isDragging,
 }: {
   card: Card;
   onPrintAction: (cardId: string, action: "start" | "pause" | "resume" | "cancel" | "complete") => void;
+  onEdit: () => void;
+  onDelete: () => void;
   isDragging?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging: isSortableDragging } =
     useSortable({ id: card.id });
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
+  const style = { transform: CSS.Transform.toString(transform), transition };
 
-  const isPrinting = card.column === "PRINTING";
+  const isPrinting  = card.column === "PRINTING";
   const printStatus = card.printLog?.status;
 
   return (
@@ -124,7 +287,7 @@ function SortableCard({
         printStatus === "PAUSED" && "border-warning/40 bg-warning-subtle/10"
       )}
     >
-      {/* Drag handle + título */}
+      {/* Header: drag + título + menu */}
       <div className="mb-2.5 flex items-start gap-2">
         <button
           {...attributes}
@@ -135,17 +298,13 @@ function SortableCard({
           <GripVertical className="h-4 w-4" />
         </button>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-text-primary leading-snug truncate">
-            {card.pieceName}
-          </p>
+          <p className="text-sm font-semibold text-text-primary leading-snug truncate">{card.pieceName}</p>
           <div className="mt-0.5 flex items-center gap-1.5 text-xs text-text-muted">
             <User className="h-3 w-3" />
             <span className="truncate">{card.clientName}</span>
           </div>
         </div>
-        <button className="shrink-0 text-text-muted hover:text-text-primary transition-colors">
-          <MoreHorizontal className="h-4 w-4" />
-        </button>
+        <CardMenu onEdit={onEdit} onDelete={onDelete} />
       </div>
 
       {/* Impressora */}
@@ -156,26 +315,25 @@ function SortableCard({
         </div>
       )}
 
+      {/* Observações */}
+      {card.notes && (
+        <p className="mb-2 text-xs text-text-muted line-clamp-2">{card.notes}</p>
+      )}
+
       {/* Status de pausa */}
       {printStatus === "PAUSED" && card.printLog?.reason && (
         <div className="mb-3 rounded-lg border border-warning/30 bg-warning-subtle px-3 py-2">
           <p className="text-xs font-medium text-warning">⏸ Pausado</p>
-          {card.printLog.note && (
-            <p className="mt-0.5 text-xs text-text-secondary">{card.printLog.note}</p>
-          )}
-          {card.printLog.pausedAt && (
-            <p className="mt-0.5 text-xs text-text-muted">Desde {card.printLog.pausedAt}</p>
-          )}
+          {card.printLog.note && <p className="mt-0.5 text-xs text-text-secondary">{card.printLog.note}</p>}
+          {card.printLog.pausedAt && <p className="mt-0.5 text-xs text-text-muted">Desde {card.printLog.pausedAt}</p>}
         </div>
       )}
 
-      {/* Footer: preço + prazo */}
+      {/* Footer: tags + prazo + preço */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex flex-wrap gap-1.5">
           {card.tags?.map((t) => (
-            <span key={t} className="rounded-full border border-border px-2 py-0.5 text-xs text-text-muted">
-              {t}
-            </span>
+            <span key={t} className="rounded-full border border-border px-2 py-0.5 text-xs text-text-muted">{t}</span>
           ))}
           {card.dueDate && (
             <span className="flex items-center gap-1 text-xs text-text-muted">
@@ -189,51 +347,21 @@ function SortableCard({
         </span>
       </div>
 
-      {/* Controles de impressão (apenas na coluna PRINTING) */}
+      {/* Controles de impressão */}
       {isPrinting && (
         <div className="mt-3 flex gap-1.5 border-t border-border pt-3">
           {!printStatus || printStatus === "QUEUED" ? (
-            <PrintBtn
-              icon={Play}
-              label="Iniciar"
-              color="success"
-              onClick={() => onPrintAction(card.id, "start")}
-            />
+            <PrintBtn icon={Play} label="Iniciar" color="success" onClick={() => onPrintAction(card.id, "start")} />
           ) : printStatus === "STARTED" || printStatus === "RESUMED" ? (
             <>
-              <PrintBtn
-                icon={Pause}
-                label="Pausar"
-                color="warning"
-                onClick={() => onPrintAction(card.id, "pause")}
-              />
-              <PrintBtn
-                icon={CheckCircle2}
-                label="Concluir"
-                color="success"
-                onClick={() => onPrintAction(card.id, "complete")}
-              />
-              <PrintBtn
-                icon={XCircle}
-                label="Cancelar"
-                color="error"
-                onClick={() => onPrintAction(card.id, "cancel")}
-              />
+              <PrintBtn icon={Pause}        label="Pausar"  color="warning" onClick={() => onPrintAction(card.id, "pause")} />
+              <PrintBtn icon={CheckCircle2} label="Concluir" color="success" onClick={() => onPrintAction(card.id, "complete")} />
+              <PrintBtn icon={XCircle}      label="Cancelar" color="error"  onClick={() => onPrintAction(card.id, "cancel")} />
             </>
           ) : printStatus === "PAUSED" ? (
             <>
-              <PrintBtn
-                icon={RotateCcw}
-                label="Retomar"
-                color="primary"
-                onClick={() => onPrintAction(card.id, "resume")}
-              />
-              <PrintBtn
-                icon={XCircle}
-                label="Cancelar"
-                color="error"
-                onClick={() => onPrintAction(card.id, "cancel")}
-              />
+              <PrintBtn icon={RotateCcw} label="Retomar"  color="primary" onClick={() => onPrintAction(card.id, "resume")} />
+              <PrintBtn icon={XCircle}  label="Cancelar"  color="error"   onClick={() => onPrintAction(card.id, "cancel")} />
             </>
           ) : null}
         </div>
@@ -242,14 +370,8 @@ function SortableCard({
   );
 }
 
-function PrintBtn({
-  icon: Icon,
-  label,
-  color,
-  onClick,
-}: {
-  icon: React.ElementType;
-  label: string;
+function PrintBtn({ icon: Icon, label, color, onClick }: {
+  icon: React.ElementType; label: string;
   color: "success" | "warning" | "error" | "primary";
   onClick: () => void;
 }) {
@@ -274,34 +396,36 @@ function PrintBtn({
 // ─── Coluna ──────────────────────────────────────────────────
 
 function Column({
-  colId,
-  cards,
-  onPrintAction,
+  colId, cards, onPrintAction, onEdit, onDelete,
 }: {
   colId: KanbanCol;
   cards: Card[];
   onPrintAction: (cardId: string, action: "start" | "pause" | "resume" | "cancel" | "complete") => void;
+  onEdit: (card: Card) => void;
+  onDelete: (cardId: string) => void;
 }) {
   const config = COLUMNS[colId];
 
   return (
     <div className={cn("flex w-72 shrink-0 flex-col rounded-xl border bg-surface/50", config.colorClass)}>
-      {/* Header da coluna */}
-      <div className="flex items-center justify-between px-4 py-3">
-        <div className="flex items-center gap-2">
-          <span className="text-base leading-none">{config.emoji}</span>
-          <span className="text-sm font-semibold text-text-primary">{config.label}</span>
-          <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-surface-hover px-1.5 text-xs font-medium text-text-muted">
-            {cards.length}
-          </span>
-        </div>
+      <div className="flex items-center gap-2 px-4 py-3">
+        <span className="text-base leading-none">{config.emoji}</span>
+        <span className="text-sm font-semibold text-text-primary">{config.label}</span>
+        <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-surface-hover px-1.5 text-xs font-medium text-text-muted">
+          {cards.length}
+        </span>
       </div>
 
-      {/* Cards */}
       <div className="flex flex-col gap-2.5 overflow-y-auto px-3 pb-3" style={{ maxHeight: "calc(100vh - 220px)" }}>
         <SortableContext items={cards.map((c) => c.id)} strategy={verticalListSortingStrategy}>
           {cards.map((card) => (
-            <SortableCard key={card.id} card={card} onPrintAction={onPrintAction} />
+            <SortableCard
+              key={card.id}
+              card={card}
+              onPrintAction={onPrintAction}
+              onEdit={() => onEdit(card)}
+              onDelete={() => onDelete(card.id)}
+            />
           ))}
         </SortableContext>
 
@@ -322,10 +446,11 @@ type DialogState =
   | { open: true; mode: "pause" | "cancel"; cardId: string; printLogId: string; cardTitle: string };
 
 export function KanbanBoard({ initialCards }: { initialCards: Card[] }) {
-  const [cards, setCards] = useState<Card[]>(initialCards);
+  const [cards, setCards]       = useState<Card[]>(initialCards);
   const [activeCard, setActiveCard] = useState<Card | null>(null);
-  const [dialog, setDialog] = useState<DialogState>({ open: false });
-  const [, startTransition] = useTransition();
+  const [dialog, setDialog]     = useState<DialogState>({ open: false });
+  const [editingCard, setEditingCard] = useState<Card | null>(null);
+  const [, startTransition]     = useTransition();
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -337,7 +462,7 @@ export function KanbanBoard({ initialCards }: { initialCards: Card[] }) {
     [cards]
   );
 
-  // ── Drag handlers ──────────────────────────────────────────
+  // ── Drag ───────────────────────────────────────────────────
 
   function onDragStart({ active }: DragStartEvent) {
     setActiveCard(cards.find((c) => c.id === active.id) ?? null);
@@ -348,33 +473,32 @@ export function KanbanBoard({ initialCards }: { initialCards: Card[] }) {
     if (!over) return;
 
     const activeId = active.id as string;
-    const overId = over.id as string;
-
+    const overId   = over.id as string;
     if (activeId === overId) return;
 
     let newColumn: KanbanCol | null = null;
 
     setCards((prev) => {
-      const activeCard = prev.find((c) => c.id === activeId);
-      if (!activeCard) return prev;
+      const activeC = prev.find((c) => c.id === activeId);
+      if (!activeC) return prev;
 
       if (COL_ORDER.includes(overId as KanbanCol)) {
         newColumn = overId as KanbanCol;
         return prev.map((c) => (c.id === activeId ? { ...c, column: newColumn! } : c));
       }
 
-      const overCard = prev.find((c) => c.id === overId);
-      if (!overCard) return prev;
+      const overC = prev.find((c) => c.id === overId);
+      if (!overC) return prev;
 
-      if (activeCard.column === overCard.column) {
-        const colCards = prev.filter((c) => c.column === activeCard.column);
-        const others   = prev.filter((c) => c.column !== activeCard.column);
+      if (activeC.column === overC.column) {
+        const colCards = prev.filter((c) => c.column === activeC.column);
+        const others   = prev.filter((c) => c.column !== activeC.column);
         const oldIdx   = colCards.findIndex((c) => c.id === activeId);
         const newIdx   = colCards.findIndex((c) => c.id === overId);
         return [...others, ...arrayMove(colCards, oldIdx, newIdx)];
       }
 
-      newColumn = overCard.column;
+      newColumn = overC.column;
       return prev.map((c) => (c.id === activeId ? { ...c, column: newColumn! } : c));
     });
 
@@ -385,10 +509,7 @@ export function KanbanBoard({ initialCards }: { initialCards: Card[] }) {
 
   // ── Ações de impressão ─────────────────────────────────────
 
-  function handlePrintAction(
-    cardId: string,
-    action: "start" | "pause" | "resume" | "cancel" | "complete"
-  ) {
+  function handlePrintAction(cardId: string, action: "start" | "pause" | "resume" | "cancel" | "complete") {
     const card = cards.find((c) => c.id === cardId);
     if (!card) return;
 
@@ -449,8 +570,30 @@ export function KanbanBoard({ initialCards }: { initialCards: Card[] }) {
           : c
       ));
     }
-
     setDialog({ open: false });
+  }
+
+  // ── Editar / Excluir card ──────────────────────────────────
+
+  function handleDelete(cardId: string) {
+    if (!confirm("Remover este card do Kanban? O orçamento não será excluído.")) return;
+    startTransition(async () => { await deleteKanbanCard(cardId); });
+    setCards((prev) => prev.filter((c) => c.id !== cardId));
+  }
+
+  function handleEditSave(cardId: string, dueDate: string, notes: string, tags: string[]) {
+    setCards((prev) => prev.map((c) =>
+      c.id === cardId
+        ? {
+            ...c,
+            notes,
+            tags,
+            dueDate: dueDate
+              ? new Date(dueDate).toLocaleDateString("pt-BR")
+              : undefined,
+          }
+        : c
+    ));
   }
 
   return (
@@ -461,7 +604,6 @@ export function KanbanBoard({ initialCards }: { initialCards: Card[] }) {
         onDragStart={onDragStart}
         onDragEnd={onDragEnd}
       >
-        {/* Board scroll horizontal */}
         <div className="flex gap-4 overflow-x-auto pb-4">
           {COL_ORDER.map((colId) => (
             <Column
@@ -469,27 +611,38 @@ export function KanbanBoard({ initialCards }: { initialCards: Card[] }) {
               colId={colId}
               cards={cardsByCol(colId)}
               onPrintAction={handlePrintAction}
+              onEdit={(card) => setEditingCard(card)}
+              onDelete={handleDelete}
             />
           ))}
         </div>
 
-        {/* Card fantasma durante drag */}
         <DragOverlay>
           {activeCard && (
             <div className="rotate-2 opacity-90">
-              <SortableCard card={activeCard} onPrintAction={() => {}} isDragging />
+              <SortableCard card={activeCard} onPrintAction={() => {}} onEdit={() => {}} onDelete={() => {}} isDragging />
             </div>
           )}
         </DragOverlay>
       </DndContext>
 
-      {/* Dialog de pausa/cancelamento */}
       {dialog.open && (
         <PrintControlDialog
           mode={dialog.mode}
           cardTitle={dialog.cardTitle}
           onConfirm={handleDialogConfirm}
           onClose={() => setDialog({ open: false })}
+        />
+      )}
+
+      {editingCard && (
+        <EditCardDialog
+          card={editingCard}
+          onClose={() => setEditingCard(null)}
+          onSave={(dueDate, notes, tags) => {
+            handleEditSave(editingCard.id, dueDate, notes, tags);
+            setEditingCard(null);
+          }}
         />
       )}
     </>
