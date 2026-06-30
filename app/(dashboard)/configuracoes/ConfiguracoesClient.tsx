@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import {
   User, DollarSign, FileText, MessageCircle,
   Bell, Shield, Save, Loader2, Zap,
-  ExternalLink, Copy, CheckCircle2, Plug, Eye, EyeOff, Wifi, WifiOff,
+  ExternalLink, Copy, CheckCircle2, Plug, Wifi, WifiOff,
 } from "lucide-react";
 import { SettingToggle } from "@/components/shared/SettingToggle";
 import { InfoTip }        from "@/components/shared/InfoTip";
@@ -51,8 +51,7 @@ interface SettingsData {
 interface Props {
   initialUser: UserData;
   initialSettings: SettingsData;
-  hasInfinityPayKey: boolean;
-  infinitypayKeyMasked?: string;
+  infinitypayHandle?: string;
   whatsappConnected: boolean;
 }
 
@@ -109,12 +108,11 @@ function InputRow({ label, tip, children }: { label: string; tip?: string; child
 
 // ─── Página ───────────────────────────────────────────────────
 
-export function ConfiguracoesClient({ initialUser, initialSettings, hasInfinityPayKey, infinitypayKeyMasked, whatsappConnected }: Props) {
+export function ConfiguracoesClient({ initialUser, initialSettings, infinitypayHandle, whatsappConnected }: Props) {
   const [tab, setTab]             = useState<TabId>("perfil");
   const [u, setU]                 = useState<UserData>(initialUser);
   const [s, setS]                 = useState<SettingsData>(initialSettings);
-  const [infinitypayKey, setInfinitypayKey] = useState("");
-  const [showKey, setShowKey]         = useState(false);
+  const [newHandle, setNewHandle] = useState("");
   const [testingKey, setTestingKey]   = useState(false);
   const [testResult, setTestResult]   = useState<"ok" | "fail" | null>(null);
   const [saved, setSaved]         = useState(false);
@@ -129,10 +127,10 @@ export function ConfiguracoesClient({ initialUser, initialSettings, hasInfinityP
 
   function handleSave() {
     startTransition(async () => {
-      const res = await saveSettings({ ...u, ...s, infinitypayApiKey: infinitypayKey || undefined });
+      const res = await saveSettings({ ...u, ...s, infinitypayHandle: newHandle || undefined });
       if (!res?.error) {
         setSaved(true);
-        setInfinitypayKey("");
+        setNewHandle("");
         setTimeout(() => setSaved(false), 3000);
       }
     });
@@ -336,8 +334,8 @@ export function ConfiguracoesClient({ initialUser, initialSettings, hasInfinityP
               info="Quando ativado, o link inclui um botão de pagamento. Você define o percentual de entrada."
               enabled={s.paymentLinkEnabled}
               onChange={(v) => set("paymentLinkEnabled", v)}
-              disabled={!hasInfinityPayKey}
-              disabledReason="⚠ Configure o token da InfinityPay em Integrações antes de ativar."
+              disabled={!infinitypayHandle}
+              disabledReason="⚠ Configure seu InfinityTag em Integrações antes de ativar."
             >
               <div className="flex items-center gap-3">
                 <label className="text-sm text-text-secondary whitespace-nowrap">Entrada de:</label>
@@ -491,22 +489,22 @@ export function ConfiguracoesClient({ initialUser, initialSettings, hasInfinityP
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-surface-hover">
                 <DollarSign className="h-5 w-5 text-primary" />
               </div>
-              <div>
-                <p className="text-sm font-semibold text-text-primary">InfinityPay</p>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-text-primary">InfinityPay Checkout</p>
                 <p className="text-xs text-text-muted mt-0.5">
-                  Permite gerar links de pagamento diretamente nos orçamentos enviados ao cliente.
+                  Gera links de pagamento via Checkout usando seu InfinityTag.
                 </p>
               </div>
-              {hasInfinityPayKey && (
-                <div className="ml-auto flex items-center gap-2 shrink-0">
+              {infinitypayHandle && (
+                <div className="flex items-center gap-2 shrink-0">
                   {testResult === "ok" && (
                     <span className="flex items-center gap-1.5 rounded-full border border-success/30 bg-success-subtle px-2.5 py-0.5 text-xs font-medium text-success">
-                      <Wifi className="h-3 w-3" /> Conectado
+                      <Wifi className="h-3 w-3" /> Válido
                     </span>
                   )}
                   {testResult === "fail" && (
                     <span className="flex items-center gap-1.5 rounded-full border border-error/30 bg-error-subtle px-2.5 py-0.5 text-xs font-medium text-error">
-                      <WifiOff className="h-3 w-3" /> Falhou
+                      <WifiOff className="h-3 w-3" /> Inválido
                     </span>
                   )}
                   {testResult === null && (
@@ -519,57 +517,48 @@ export function ConfiguracoesClient({ initialUser, initialSettings, hasInfinityP
                     disabled={testingKey}
                     className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:border-primary hover:text-primary transition-colors disabled:opacity-50"
                   >
-                    {testingKey
-                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      : <Wifi className="h-3.5 w-3.5" />
-                    }
-                    {testingKey ? "Testando..." : "Testar conexão"}
+                    {testingKey ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wifi className="h-3.5 w-3.5" />}
+                    {testingKey ? "Testando..." : "Testar"}
                   </button>
                 </div>
               )}
             </div>
 
             <div className="flex flex-col gap-3">
-              {hasInfinityPayKey && infinitypayKeyMasked && (
-                <div className="rounded-lg border border-border bg-background px-3 py-2.5 flex items-center gap-2">
-                  <span className="text-xs text-text-muted flex-1 font-mono">{infinitypayKeyMasked}</span>
-                  <span className="text-xs text-success font-medium">Token ativo</span>
+              {infinitypayHandle && (
+                <div className="rounded-lg border border-success/20 bg-success-subtle px-3 py-2.5 flex items-center gap-2">
+                  <span className="text-sm font-mono font-medium text-text-primary">${infinitypayHandle}</span>
+                  <span className="text-xs text-success font-medium ml-auto">InfinityTag ativo</span>
                 </div>
               )}
 
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-text-secondary">
-                  {hasInfinityPayKey ? "Substituir token de acesso" : "Token de acesso (Checkout API)"}
+                  {infinitypayHandle ? "Alterar InfinityTag" : "Seu InfinityTag"}
                 </label>
                 <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-text-muted">$</span>
                   <input
-                    type={showKey ? "text" : "password"}
-                    value={infinitypayKey}
-                    onChange={(e) => setInfinitypayKey(e.target.value)}
-                    placeholder={hasInfinityPayKey ? "Digite para substituir o token atual" : "Cole seu token de acesso aqui"}
-                    className={`${inputCls} pr-10`}
+                    type="text"
+                    value={newHandle}
+                    onChange={(e) => setNewHandle(e.target.value.replace(/^\$/, ""))}
+                    placeholder={infinitypayHandle ?? "seu-infinitytag"}
+                    className={`${inputCls} pl-7`}
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowKey((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary transition-colors"
-                  >
-                    {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
                 </div>
                 <p className="mt-1.5 text-xs text-text-muted">
-                  Token fornecido pela InfinityPay ao contratar o Checkout. Acesse{" "}
-                  <a href="https://www.infinitepay.io/desenvolvedores" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-0.5">
-                    infinitepay.io/desenvolvedores
+                  Seu InfinityTag está no app InfinityPay em{" "}
+                  <strong>Perfil → InfinityTag</strong>. É o nome após o <strong>$</strong>.{" "}
+                  <a href="https://www.infinitepay.io/checkout-documentacao" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-0.5">
+                    Ver documentação
                     <ExternalLink className="h-3 w-3" />
-                  </a>{" "}
-                  ou solicite em <strong>ecommerce@infinitepay.io</strong>
+                  </a>
                 </p>
               </div>
 
-              {infinitypayKey && (
+              {newHandle && (
                 <div className="rounded-lg border border-info/20 bg-info-subtle px-3 py-2 text-xs text-text-secondary">
-                  💡 Clique em <strong>Salvar alterações</strong> para ativar a chave.
+                  💡 Clique em <strong>Salvar alterações</strong> para ativar.
                 </div>
               )}
             </div>

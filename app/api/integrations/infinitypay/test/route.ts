@@ -8,33 +8,35 @@ export async function GET() {
 
   const user = await prisma.user.findUnique({
     where:  { id: session.user.id },
-    select: { infinitypayApiKey: true },
+    select: { infinitypayHandle: true },
   });
 
-  if (!user?.infinitypayApiKey) {
-    return NextResponse.json({ ok: false, error: "Chave da API não configurada." });
+  if (!user?.infinitypayHandle) {
+    return NextResponse.json({ ok: false, error: "InfinityTag não configurado." });
   }
 
   try {
-    // Testa autenticação no Checkout API da InfinityPay
+    // Tenta criar um link de checkout simbólico para validar o handle
     const res = await fetch("https://api.checkout.infinitepay.io/links", {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${user.infinitypayApiKey}`,
-        "Content-Type": "application/json",
-      },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        handle: user.infinitypayHandle,
+        items: [{ quantity: 1, price: 1, description: "Teste de conexão" }],
+      }),
     });
 
-    // 200 ou 404 significa que o token é válido (endpoint pode não suportar GET, mas autentica)
-    if (res.ok || res.status === 404 || res.status === 405) {
-      return NextResponse.json({ ok: true });
+    const data = await res.json().catch(() => ({}));
+
+    // 200/201 = handle válido e link criado
+    if (res.ok) return NextResponse.json({ ok: true });
+
+    // 404 com mensagem de handle inválido
+    if (res.status === 404 || res.status === 422) {
+      return NextResponse.json({ ok: false, error: "InfinityTag não encontrado. Verifique se está correto." });
     }
 
-    if (res.status === 401 || res.status === 403) {
-      return NextResponse.json({ ok: false, error: "Token inválido ou sem permissão." });
-    }
-
-    return NextResponse.json({ ok: false, error: `Erro ${res.status} na API InfinityPay.` });
+    return NextResponse.json({ ok: false, error: `Erro ${res.status}: ${JSON.stringify(data)}` });
   } catch {
     return NextResponse.json({ ok: false, error: "Não foi possível conectar à API InfinityPay." });
   }

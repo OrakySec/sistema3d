@@ -130,7 +130,7 @@ model User {
   evolutionConnected   Boolean  @default(false)
 
   // InfinityPay
-  infinitypayApiKey    String?
+  infinitypayHandle    String?  // InfinityTag do usuário (sem o $)
   infinitypayEnabled   Boolean  @default(false)
 
   // Configurações gerais
