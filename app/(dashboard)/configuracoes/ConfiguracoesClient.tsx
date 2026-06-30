@@ -559,8 +559,8 @@ export function ConfiguracoesClient({ initialUser, initialSettings, hasInfinityP
                 </div>
                 <p className="mt-1.5 text-xs text-text-muted">
                   Encontre sua chave em{" "}
-                  <a href="https://infinitypay.io" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-0.5">
-                    infinitypay.io
+                  <a href="https://www.infinitepay.io" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-0.5">
+                    infinitepay.io
                     <ExternalLink className="h-3 w-3" />
                   </a>{" "}
                   → Desenvolvedor → API Keys
