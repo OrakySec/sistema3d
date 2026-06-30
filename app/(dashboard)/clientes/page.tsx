@@ -9,12 +9,22 @@ export const metadata: Metadata = { title: "Clientes" };
 export default async function ClientesPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
+  const userId = session.user.id;
 
-  const clients = await prisma.client.findMany({
-    where:   { userId: session.user.id },
-    include: { _count: { select: { quotes: true } } },
-    orderBy: { createdAt: "desc" },
-  });
+  const [clients, user] = await Promise.all([
+    prisma.client.findMany({
+      where:   { userId },
+      include: { _count: { select: { quotes: true } } },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.user.findUnique({ where: { id: userId }, select: { plan: true, stripeCustomerId: true } }),
+  ]);
 
-  return <ClientesClient initialClients={clients} />;
+  return (
+    <ClientesClient
+      initialClients={clients}
+      plan={user?.plan ?? "FREE"}
+      isFirstSubscriber={!user?.stripeCustomerId}
+    />
+  );
 }

@@ -9,6 +9,8 @@ import { CrudDialog, FormField, DialogActions, inputCls } from "@/components/sha
 import { createPrinter, updatePrinter, togglePrinterActive, deletePrinter } from "@/lib/actions/printers";
 import { formatBRL } from "@/lib/calculations";
 import { InfoTip } from "@/components/shared/InfoTip";
+import { UpgradeModal } from "@/components/shared/UpgradeModal";
+import type { Plan, LimitKey } from "@/lib/plans";
 
 const printerSchema = z.object({
   name:               z.string().min(2, "Nome obrigatório"),
@@ -31,7 +33,9 @@ function cph(p: PrinterModel)  { return p.purchasePrice / p.estimatedHours + p.m
 function lifeUsed(p: PrinterModel) { return Math.min(100, (p.totalHours / p.estimatedHours) * 100); }
 function successRate(p: PrinterModel) { return p.totalPrints === 0 ? 100 : Math.round((p.successCount / p.totalPrints) * 100); }
 
-function PrinterDialog({ printer, onClose }: { printer?: PrinterModel; onClose: () => void }) {
+function PrinterDialog({ printer, onClose, onLimitExceeded }: {
+  printer?: PrinterModel; onClose: () => void; onLimitExceeded: (key: LimitKey) => void;
+}) {
   const [pending, startTransition] = useTransition();
   const { register, handleSubmit, watch, formState: { errors } } = useForm<PrinterForm>({
     resolver: zodResolver(printerSchema) as unknown as Resolver<PrinterForm>,
@@ -46,8 +50,9 @@ function PrinterDialog({ printer, onClose }: { printer?: PrinterModel; onClose: 
     const fd = new FormData();
     Object.entries(data).forEach(([k, v]) => v !== undefined && fd.append(k, String(v)));
     startTransition(async () => {
-      if (printer) await updatePrinter(printer.id, fd);
-      else await createPrinter(fd);
+      if (printer) { await updatePrinter(printer.id, fd); onClose(); return; }
+      const res = await createPrinter(fd);
+      if (res?.error === "LIMIT_EXCEEDED") { onClose(); onLimitExceeded(res.key as LimitKey); return; }
       onClose();
     });
   }
@@ -121,9 +126,17 @@ function PrinterDialog({ printer, onClose }: { printer?: PrinterModel; onClose: 
   );
 }
 
-export function ImpressorasClient({ initialPrinters }: { initialPrinters: PrinterModel[] }) {
+export function ImpressorasClient({
+  initialPrinters, plan, isFirstSubscriber,
+}: {
+  initialPrinters: PrinterModel[];
+  plan: Plan;
+  isFirstSubscriber: boolean;
+}) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing]       = useState<PrinterModel | undefined>();
+  const [upgradeOpen, setUpgradeOpen]         = useState(false);
+  const [upgradeLimitKey, setUpgradeLimitKey] = useState<LimitKey>("printers");
   const [, startTransition]         = useTransition();
 
   function handleToggle(id: string, active: boolean) {
@@ -136,6 +149,7 @@ export function ImpressorasClient({ initialPrinters }: { initialPrinters: Printe
   function openEdit(p: PrinterModel) { setEditing(p); setDialogOpen(true); }
   function openNew()                  { setEditing(undefined); setDialogOpen(true); }
   function closeDialog()              { setDialogOpen(false); setEditing(undefined); }
+  function handleLimitExceeded(key: LimitKey) { setUpgradeLimitKey(key); setUpgradeOpen(true); }
 
   return (
     <>
@@ -229,7 +243,16 @@ export function ImpressorasClient({ initialPrinters }: { initialPrinters: Printe
           <p className="text-sm font-medium text-text-secondary">Adicionar impressora</p>
         </button>
       </div>
-      {dialogOpen && <PrinterDialog printer={editing} onClose={closeDialog} />}
+      {dialogOpen && (
+        <PrinterDialog printer={editing} onClose={closeDialog} onLimitExceeded={handleLimitExceeded} />
+      )}
+      <UpgradeModal
+        open={upgradeOpen}
+        onClose={() => setUpgradeOpen(false)}
+        limitKey={upgradeLimitKey}
+        currentPlan={plan}
+        isFirstSubscriber={isFirstSubscriber}
+      />
     </>
   );
 }

@@ -9,11 +9,18 @@ export const metadata: Metadata = { title: "Impressoras" };
 export default async function ImpressorasPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
+  const userId = session.user.id;
 
-  const printers = await prisma.printer.findMany({
-    where:   { userId: session.user.id },
-    orderBy: { createdAt: "desc" },
-  });
+  const [printers, user] = await Promise.all([
+    prisma.printer.findMany({ where: { userId }, orderBy: { createdAt: "desc" } }),
+    prisma.user.findUnique({ where: { id: userId }, select: { plan: true, stripeCustomerId: true } }),
+  ]);
 
-  return <ImpressorasClient initialPrinters={printers} />;
+  return (
+    <ImpressorasClient
+      initialPrinters={printers}
+      plan={user?.plan ?? "FREE"}
+      isFirstSubscriber={!user?.stripeCustomerId}
+    />
+  );
 }

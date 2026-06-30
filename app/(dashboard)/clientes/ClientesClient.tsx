@@ -7,6 +7,8 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CrudDialog, FormField, DialogActions, inputCls } from "@/components/shared/CrudDialog";
 import { createClient, updateClient, deleteClient } from "@/lib/actions/clients";
+import { UpgradeModal } from "@/components/shared/UpgradeModal";
+import type { Plan, LimitKey } from "@/lib/plans";
 
 const clientSchema = z.object({
   name:     z.string().min(2, "Mínimo 2 caracteres"),
@@ -25,7 +27,9 @@ interface Client {
   _count?: { quotes: number };
 }
 
-function ClientDialog({ client, onClose }: { client?: Client; onClose: () => void }) {
+function ClientDialog({ client, onClose, onLimitExceeded }: {
+  client?: Client; onClose: () => void; onLimitExceeded: (key: LimitKey) => void;
+}) {
   const [pending, startTransition] = useTransition();
   const { register, handleSubmit, formState: { errors } } = useForm<ClientForm>({
     resolver: zodResolver(clientSchema),
@@ -39,8 +43,9 @@ function ClientDialog({ client, onClose }: { client?: Client; onClose: () => voi
     const fd = new FormData();
     Object.entries(data).forEach(([k, v]) => v !== undefined && fd.append(k, v));
     startTransition(async () => {
-      if (client) await updateClient(client.id, fd);
-      else await createClient(fd);
+      if (client) { await updateClient(client.id, fd); onClose(); return; }
+      const res = await createClient(fd);
+      if (res?.error === "LIMIT_EXCEEDED") { onClose(); onLimitExceeded(res.key as LimitKey); return; }
       onClose();
     });
   }
@@ -77,11 +82,19 @@ function ClientDialog({ client, onClose }: { client?: Client; onClose: () => voi
   );
 }
 
-export function ClientesClient({ initialClients }: { initialClients: Client[] }) {
-  const [search, setSearch]       = useState("");
+export function ClientesClient({
+  initialClients, plan, isFirstSubscriber,
+}: {
+  initialClients: Client[];
+  plan: Plan;
+  isFirstSubscriber: boolean;
+}) {
+  const [search, setSearch]         = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing]     = useState<Client | undefined>();
-  const [, startTransition]       = useTransition();
+  const [editing, setEditing]       = useState<Client | undefined>();
+  const [upgradeOpen, setUpgradeOpen]     = useState(false);
+  const [upgradeLimitKey, setUpgradeLimitKey] = useState<LimitKey>("clients");
+  const [, startTransition]         = useTransition();
 
   const filtered = initialClients.filter((c) =>
     c.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -97,6 +110,11 @@ export function ClientesClient({ initialClients }: { initialClients: Client[] })
   function openEdit(c: Client) { setEditing(c); setDialogOpen(true); }
   function openNew()            { setEditing(undefined); setDialogOpen(true); }
   function closeDialog()        { setDialogOpen(false); setEditing(undefined); }
+
+  function handleLimitExceeded(key: LimitKey) {
+    setUpgradeLimitKey(key);
+    setUpgradeOpen(true);
+  }
 
   return (
     <>
@@ -180,7 +198,17 @@ export function ClientesClient({ initialClients }: { initialClients: Client[] })
         )}
       </div>
 
-      {dialogOpen && <ClientDialog client={editing} onClose={closeDialog} />}
+      {dialogOpen && (
+        <ClientDialog client={editing} onClose={closeDialog} onLimitExceeded={handleLimitExceeded} />
+      )}
+
+      <UpgradeModal
+        open={upgradeOpen}
+        onClose={() => setUpgradeOpen(false)}
+        limitKey={upgradeLimitKey}
+        currentPlan={plan}
+        isFirstSubscriber={isFirstSubscriber}
+      />
     </>
   );
 }

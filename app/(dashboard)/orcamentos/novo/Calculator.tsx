@@ -10,6 +10,8 @@ import { calculateQuote, formatBRL, type QuoteBreakdown } from "@/lib/calculatio
 import { InfoTip } from "@/components/shared/InfoTip";
 import { createQuote } from "@/lib/actions/quotes";
 import { createClientQuick } from "@/lib/actions/clients";
+import { UpgradeModal } from "@/components/shared/UpgradeModal";
+import type { Plan, LimitKey } from "@/lib/plans";
 
 // ─── Props vindo do Server Component ─────────────────────────
 
@@ -32,6 +34,8 @@ interface CalculatorProps {
   filaments: FilamentOption[];
   clients:   ClientOption[];
   settings:  Settings;
+  plan:              Plan;
+  isFirstSubscriber: boolean;
 }
 
 // ─── Versão ───────────────────────────────────────────────────
@@ -104,8 +108,10 @@ function MetricBox({ label, value, sub, highlight }: {
 
 // ─── Calculadora ─────────────────────────────────────────────
 
-export function Calculator({ printers, filaments, clients, settings }: CalculatorProps) {
+export function Calculator({ printers, filaments, clients, settings, plan, isFirstSubscriber }: CalculatorProps) {
   const [pending, startTransition] = useTransition();
+  const [upgradeOpen, setUpgradeOpen]         = useState(false);
+  const [upgradeLimitKey, setUpgradeLimitKey] = useState<LimitKey>("quotesPerMonth");
 
   // Dados da peça
   const [pieceName, setPieceName]     = useState("");
@@ -219,7 +225,13 @@ export function Calculator({ printers, filaments, clients, settings }: Calculato
         profitMargin:  v.profitMargin,
       }))));
     }
-    startTransition(async () => { await createQuote(fd); });
+    startTransition(async () => {
+      const res = await createQuote(fd);
+      if (res?.error === "LIMIT_EXCEEDED") {
+        setUpgradeLimitKey(res.key as LimitKey);
+        setUpgradeOpen(true);
+      }
+    });
   }
 
   // Sem impressoras ou filamentos cadastrados
@@ -523,5 +535,13 @@ export function Calculator({ printers, filaments, clients, settings }: Calculato
         </div>
       </div>
     </div>
+
+    <UpgradeModal
+      open={upgradeOpen}
+      onClose={() => setUpgradeOpen(false)}
+      limitKey={upgradeLimitKey}
+      currentPlan={plan}
+      isFirstSubscriber={isFirstSubscriber}
+    />
   );
 }

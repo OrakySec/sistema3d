@@ -11,7 +11,7 @@ export default async function NovoOrcamentoPage() {
   if (!session?.user?.id) redirect("/login");
   const userId = session.user.id;
 
-  const [printers, filaments, clients, settings] = await Promise.all([
+  const [printers, filaments, clients, settings, user] = await Promise.all([
     prisma.printer.findMany({
       where:   { userId, active: true },
       orderBy: { name: "asc" },
@@ -31,6 +31,7 @@ export default async function NovoOrcamentoPage() {
       where:  { userId },
       select: { energyCostKwh: true, defaultProfitMargin: true, paintingHourlyRate: true, quoteExpirationDays: true },
     }),
+    prisma.user.findUnique({ where: { id: userId }, select: { plan: true, stripeCustomerId: true } }),
   ]);
 
   return (
@@ -38,6 +39,8 @@ export default async function NovoOrcamentoPage() {
       printers={printers}
       filaments={filaments}
       clients={clients}
+      plan={user?.plan ?? "FREE"}
+      isFirstSubscriber={!user?.stripeCustomerId}
       settings={{
         energyCostKwh:       settings?.energyCostKwh       ?? 0.75,
         defaultProfitMargin: settings?.defaultProfitMargin ?? 30,

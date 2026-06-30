@@ -9,6 +9,7 @@ interface Props {
   onClose: () => void;
   limitKey: LimitKey;
   currentPlan: Plan;
+  isFirstSubscriber?: boolean;
 }
 
 const FEATURES = [
@@ -27,7 +28,7 @@ function fmt(val: number | boolean) {
   return String(val);
 }
 
-export function UpgradeModal({ open, onClose, limitKey, currentPlan }: Props) {
+export function UpgradeModal({ open, onClose, limitKey, currentPlan, isFirstSubscriber }: Props) {
   const [loading, setLoading] = useState<"PRO" | "STUDIO" | null>(null);
 
   if (!open) return null;
@@ -88,9 +89,14 @@ export function UpgradeModal({ open, onClose, limitKey, currentPlan }: Props) {
             ))}
           </div>
 
-          <p className="mt-3 text-xs text-text-muted text-center">
-            90% de desconto no primeiro mês — aplicado automaticamente
-          </p>
+          {isFirstSubscriber && (
+            <div className="mt-3 flex items-center justify-center gap-2 rounded-lg border border-primary/30 bg-primary-subtle px-3 py-2">
+              <Zap className="h-3.5 w-3.5 text-primary shrink-0" />
+              <p className="text-xs font-medium text-primary">
+                🎉 Você tem 90% de desconto no primeiro mês — cupom aplicado automaticamente!
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Botões */}

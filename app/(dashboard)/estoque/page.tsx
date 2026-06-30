@@ -9,11 +9,18 @@ export const metadata: Metadata = { title: "Estoque" };
 export default async function EstoquePage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
+  const userId = session.user.id;
 
-  const filaments = await prisma.filament.findMany({
-    where:   { userId: session.user.id, active: true },
-    orderBy: { createdAt: "desc" },
-  });
+  const [filaments, user] = await Promise.all([
+    prisma.filament.findMany({ where: { userId, active: true }, orderBy: { createdAt: "desc" } }),
+    prisma.user.findUnique({ where: { id: userId }, select: { plan: true, stripeCustomerId: true } }),
+  ]);
 
-  return <EstoqueClient initialFilaments={filaments} />;
+  return (
+    <EstoqueClient
+      initialFilaments={filaments}
+      plan={user?.plan ?? "FREE"}
+      isFirstSubscriber={!user?.stripeCustomerId}
+    />
+  );
 }

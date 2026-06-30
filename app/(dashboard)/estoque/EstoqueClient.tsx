@@ -7,6 +7,8 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CrudDialog, FormField, DialogActions, inputCls, selectCls } from "@/components/shared/CrudDialog";
 import { createFilament, updateFilament, deleteFilament } from "@/lib/actions/filaments";
+import { UpgradeModal } from "@/components/shared/UpgradeModal";
+import type { Plan, LimitKey } from "@/lib/plans";
 
 const FILAMENT_TYPES = ["PLA", "PETG", "ABS", "ASA", "TPU", "NYLON", "RESIN", "OTHER"] as const;
 
@@ -40,7 +42,9 @@ const typeColors: Record<string, string> = {
   OTHER: "border-border text-text-muted bg-surface-hover",
 };
 
-function FilamentDialog({ filament, onClose }: { filament?: Filament; onClose: () => void }) {
+function FilamentDialog({ filament, onClose, onLimitExceeded }: {
+  filament?: Filament; onClose: () => void; onLimitExceeded: (key: LimitKey) => void;
+}) {
   const [pending, startTransition] = useTransition();
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FilamentForm>({
     resolver: zodResolver(filamentSchema) as Resolver<FilamentForm>,
@@ -55,8 +59,9 @@ function FilamentDialog({ filament, onClose }: { filament?: Filament; onClose: (
     const fd = new FormData();
     Object.entries(data).forEach(([k, v]) => v !== undefined && fd.append(k, String(v)));
     startTransition(async () => {
-      if (filament) await updateFilament(filament.id, fd);
-      else await createFilament(fd);
+      if (filament) { await updateFilament(filament.id, fd); onClose(); return; }
+      const res = await createFilament(fd);
+      if (res?.error === "LIMIT_EXCEEDED") { onClose(); onLimitExceeded(res.key as LimitKey); return; }
       onClose();
     });
   }
@@ -130,11 +135,19 @@ function FilamentDialog({ filament, onClose }: { filament?: Filament; onClose: (
   );
 }
 
-export function EstoqueClient({ initialFilaments }: { initialFilaments: Filament[] }) {
+export function EstoqueClient({
+  initialFilaments, plan, isFirstSubscriber,
+}: {
+  initialFilaments: Filament[];
+  plan: Plan;
+  isFirstSubscriber: boolean;
+}) {
   const [search, setSearch]           = useState("");
   const [filterType, setFilterType]   = useState<string>("ALL");
   const [dialogOpen, setDialogOpen]   = useState(false);
   const [editing, setEditing]         = useState<Filament | undefined>();
+  const [upgradeOpen, setUpgradeOpen]         = useState(false);
+  const [upgradeLimitKey, setUpgradeLimitKey] = useState<LimitKey>("filaments");
   const [, startTransition]           = useTransition();
 
   const lowStock   = initialFilaments.filter((f) => f.currentGrams <= f.lowStockAlert && f.active);
@@ -166,6 +179,7 @@ export function EstoqueClient({ initialFilaments }: { initialFilaments: Filament
   function openEdit(f: Filament) { setEditing(f); setDialogOpen(true); }
   function openNew()              { setEditing(undefined); setDialogOpen(true); }
   function closeDialog()          { setDialogOpen(false); setEditing(undefined); }
+  function handleLimitExceeded(key: LimitKey) { setUpgradeLimitKey(key); setUpgradeOpen(true); }
 
   return (
     <>
@@ -275,7 +289,16 @@ export function EstoqueClient({ initialFilaments }: { initialFilaments: Filament
           })}
         </div>
       </div>
-      {dialogOpen && <FilamentDialog filament={editing} onClose={closeDialog} />}
+      {dialogOpen && (
+        <FilamentDialog filament={editing} onClose={closeDialog} onLimitExceeded={handleLimitExceeded} />
+      )}
+      <UpgradeModal
+        open={upgradeOpen}
+        onClose={() => setUpgradeOpen(false)}
+        limitKey={upgradeLimitKey}
+        currentPlan={plan}
+        isFirstSubscriber={isFirstSubscriber}
+      />
     </>
   );
 }
