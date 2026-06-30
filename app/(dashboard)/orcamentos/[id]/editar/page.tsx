@@ -69,12 +69,15 @@ export default async function EditarOrcamentoPage({ params }: { params: { id: st
         profitMargin:  quote.profitMargin,
         paintingHours: quote.paintingHours,
         expirationDays,
-        versions: quote.versions.map((v) => ({
-          label:        v.label,
-          description:  v.description ?? "",
-          paintingHours: 0,
-          profitMargin:  0,
-        })),
+        versions: quote.versions.map((v) => {
+          const d = v.details as Record<string, number> | null;
+          return {
+            label:         v.label,
+            description:   v.description ?? "",
+            paintingHours: d?.paintingHours ?? 0,
+            profitMargin:  d?.profitMargin  ?? 0,
+          };
+        }),
       }}
     />
   );

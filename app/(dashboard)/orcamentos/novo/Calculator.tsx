@@ -147,10 +147,31 @@ export function Calculator({ printers, filaments, clients, settings, plan, isFir
   const [paintingHours, setPaintingHours] = useState(initialData?.paintingHours ?? 0);
   const [expirationDays, setExpirationDays] = useState(initialData?.expirationDays ?? settings.quoteExpirationDays);
 
-  // Versões
-  const [versions, setVersions] = useState<QuoteVersion[]>(
-    initialData?.versions.map((v) => ({ id: crypto.randomUUID(), label: v.label, paintingHours: v.paintingHours, profitMargin: v.profitMargin, breakdown: null })) ?? []
-  );
+  // Versões — calcula breakdown inicial para versões carregadas na edição
+  const [versions, setVersions] = useState<QuoteVersion[]>(() => {
+    if (!initialData?.versions.length) return [];
+    const initPrinter  = printers.find((p) => p.id === (initialData.printerId  || printers[0]?.id))  ?? printers[0];
+    const initFilament = filaments.find((f) => f.id === (initialData.filamentId || filaments[0]?.id)) ?? filaments[0];
+    return initialData.versions.map((v) => {
+      let breakdown = null;
+      if (initPrinter && initFilament) {
+        breakdown = calculateQuote({
+          filamentGrams:             initialData.filamentGrams,
+          printHours:                initialData.printHours,
+          profitMargin:              v.profitMargin,
+          paintingHours:             v.paintingHours,
+          filamentCostPerKg:         initFilament.costPerKg,
+          printerPowerWatts:         initPrinter.powerWatts,
+          printerPurchasePrice:      initPrinter.purchasePrice,
+          printerEstimatedHours:     initPrinter.estimatedHours,
+          printerMonthlyMaintenance: initPrinter.monthlyMaintenance,
+          energyCostKwh:             settings.energyCostKwh,
+          paintingHourlyRate:        settings.paintingHourlyRate,
+        });
+      }
+      return { id: crypto.randomUUID(), label: v.label, paintingHours: v.paintingHours, profitMargin: v.profitMargin, breakdown };
+    });
+  });
 
   // Clientes (pode crescer com criação inline)
   const [localClients, setLocalClients] = useState<ClientOption[]>(clients);

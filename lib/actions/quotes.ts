@@ -95,7 +95,7 @@ export async function createQuote(formData: FormData) {
       label:       v.label,
       description: v.description,
       totalPrice:  vb.totalPrice,
-      details:     JSON.parse(JSON.stringify(vb)),
+      details:     JSON.parse(JSON.stringify({ ...vb, paintingHours: v.paintingHours, profitMargin: v.profitMargin })),
       order:       i,
     };
   });
