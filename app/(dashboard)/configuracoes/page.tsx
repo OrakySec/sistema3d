@@ -11,7 +11,10 @@ export default async function ConfiguracoesPage() {
   if (!session?.user?.id) redirect("/login");
   const userId = session.user.id;
 
-  const [user, settings] = await Promise.all([
+  const now   = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const [user, settings, clientsCount, printersCount, filamentsCount, quotesCount] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -21,6 +24,10 @@ export default async function ConfiguracoesPage() {
       },
     }),
     prisma.userSettings.findUnique({ where: { userId } }),
+    prisma.client.count({ where: { userId } }),
+    prisma.printer.count({ where: { userId } }),
+    prisma.filament.count({ where: { userId } }),
+    prisma.quote.count({ where: { userId, createdAt: { gte: start } } }),
   ]);
 
   return (
@@ -31,6 +38,7 @@ export default async function ConfiguracoesPage() {
       subscriptionStatus={user?.subscriptionStatus ?? "TRIAL"}
       currentPeriodEnd={user?.currentPeriodEnd?.toISOString() ?? null}
       hasStripeId={!!user?.stripeCustomerId}
+      usageCounts={{ clients: clientsCount, printers: printersCount, filaments: filamentsCount, quotesThisMonth: quotesCount }}
       initialUser={{
         businessName: user?.businessName ?? "",
         whatsapp:     user?.whatsapp     ?? "",

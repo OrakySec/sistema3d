@@ -14,6 +14,7 @@ import { BillingSection } from "@/components/shared/BillingSection";
 import { inputCls }       from "@/components/shared/CrudDialog";
 import { saveSettings }   from "@/lib/actions/settings";
 import type { Plan } from "@/lib/plans";
+import { PLAN_LIMITS }   from "@/lib/plans";
 type SubscriptionStatus = "TRIAL" | "ACTIVE" | "PAST_DUE" | "CANCELED" | "UNPAID";
 
 // ─── Tipos ───────────────────────────────────────────────────
@@ -52,6 +53,13 @@ interface SettingsData {
   portfolioTestimonialsEnabled: boolean;
 }
 
+interface UsageCounts {
+  clients: number;
+  printers: number;
+  filaments: number;
+  quotesThisMonth: number;
+}
+
 interface Props {
   initialUser: UserData;
   initialSettings: SettingsData;
@@ -61,6 +69,7 @@ interface Props {
   subscriptionStatus: SubscriptionStatus;
   currentPeriodEnd: string | null;
   hasStripeId: boolean;
+  usageCounts: UsageCounts;
 }
 
 // ─── Componentes auxiliares ───────────────────────────────────
@@ -115,9 +124,111 @@ function InputRow({ label, tip, children }: { label: string; tip?: string; child
   );
 }
 
+// ─── PlanUsageCard ───────────────────────────────────────────
+
+const PLAN_LABELS: Record<Plan, string> = { FREE: "Gratuito", PRO: "Pro", STUDIO: "Estúdio" };
+
+function UsageTile({ label, current, limit }: { label: string; current: number; limit: number }) {
+  const unlimited = limit === -1;
+  const pct       = unlimited ? 0 : Math.min((current / limit) * 100, 100);
+  const danger    = !unlimited && pct >= 80;
+  const barColor  = danger ? "bg-error" : "bg-primary";
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-text-secondary font-medium">{label}</span>
+        <span className={`font-semibold tabular-nums ${danger ? "text-error" : "text-text-primary"}`}>
+          {current}{unlimited ? "" : `/${limit}`}
+          {unlimited && <span className="ml-1 text-success text-[10px] font-medium">ilimitado</span>}
+        </span>
+      </div>
+      {!unlimited && (
+        <div className="h-1.5 w-full rounded-full bg-surface-hover overflow-hidden">
+          <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PlanUsageCard({ plan, usageCounts }: { plan: Plan; usageCounts: UsageCounts }) {
+  const limits = PLAN_LIMITS[plan];
+  const planLabel = PLAN_LABELS[plan];
+
+  return (
+    <div className="mb-8">
+      <h2 className="mb-4 font-display text-xs font-semibold uppercase tracking-wider text-text-muted">
+        Plano de assinatura
+      </h2>
+      <div className="rounded-xl border border-border bg-surface overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg gradient-primary">
+              <Zap className="h-4 w-4 text-white" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-text-primary">Plano {planLabel}</p>
+              <p className="text-xs text-text-muted">
+                {plan === "FREE" ? "Gratuito para sempre" : "Assinatura ativa"}
+              </p>
+            </div>
+          </div>
+          {plan === "FREE" && (
+            <a
+              href="/configuracoes?tab=assinatura"
+              className="flex items-center gap-1.5 rounded-lg gradient-primary px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90 transition-opacity"
+            >
+              <Zap className="h-3 w-3" />
+              Fazer upgrade
+            </a>
+          )}
+        </div>
+
+        {/* Usage grid */}
+        <div className="grid grid-cols-2 gap-4 p-5 sm:grid-cols-4">
+          <UsageTile
+            label="Orçamentos/mês"
+            current={usageCounts.quotesThisMonth}
+            limit={limits.quotesPerMonth}
+          />
+          <UsageTile
+            label="Clientes"
+            current={usageCounts.clients}
+            limit={limits.clients}
+          />
+          <UsageTile
+            label="Impressoras"
+            current={usageCounts.printers}
+            limit={limits.printers}
+          />
+          <UsageTile
+            label="Filamentos"
+            current={usageCounts.filaments}
+            limit={limits.filaments}
+          />
+        </div>
+
+        {/* Upgrade nudge for FREE plan */}
+        {plan === "FREE" && (
+          <div className="px-5 pb-4">
+            <p className="text-xs text-text-muted">
+              Precisa de mais?{" "}
+              <a href="/configuracoes?tab=assinatura" className="font-medium text-primary hover:underline">
+                Veja os planos Pro e Estúdio →
+              </a>
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Página ───────────────────────────────────────────────────
 
-export function ConfiguracoesClient({ initialUser, initialSettings, infinitypayHandle, whatsappConnected, plan, subscriptionStatus, currentPeriodEnd, hasStripeId }: Props) {
+export function ConfiguracoesClient({ initialUser, initialSettings, infinitypayHandle, whatsappConnected, plan, subscriptionStatus, currentPeriodEnd, hasStripeId, usageCounts }: Props) {
   const searchParams = useSearchParams();
   const initialTab   = (searchParams.get("tab") as TabId) ?? "perfil";
   const [tab, setTab]             = useState<TabId>(initialTab);
@@ -209,6 +320,7 @@ export function ConfiguracoesClient({ initialUser, initialSettings, infinitypayH
             </div>
           </Section>
 
+          <PlanUsageCard plan={plan} usageCounts={usageCounts} />
         </>
       )}
 
