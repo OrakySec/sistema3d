@@ -61,6 +61,11 @@ const navItems = [
     label: "Portfólio",
     icon: Image,
   },
+  {
+    href: "/configuracoes?tab=assinatura",
+    label: "Assinatura",
+    icon: Zap,
+  },
 ];
 
 interface SidebarProps {

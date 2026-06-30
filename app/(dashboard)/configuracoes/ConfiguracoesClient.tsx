@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   User, DollarSign, FileText, MessageCircle,
   Bell, Shield, Save, Loader2, Zap,
@@ -64,16 +65,17 @@ interface Props {
 
 // ─── Componentes auxiliares ───────────────────────────────────
 
-type TabId = "perfil" | "custos" | "orcamentos" | "whatsapp" | "estoque" | "portfolio" | "integracoes";
+type TabId = "perfil" | "custos" | "orcamentos" | "whatsapp" | "estoque" | "portfolio" | "integracoes" | "assinatura";
 
 const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
-  { id: "perfil",       label: "Perfil",       icon: User },
-  { id: "custos",       label: "Custos",       icon: DollarSign },
-  { id: "orcamentos",   label: "Orçamentos",   icon: FileText },
-  { id: "whatsapp",     label: "WhatsApp",     icon: MessageCircle },
-  { id: "estoque",      label: "Estoque",      icon: Bell },
-  { id: "portfolio",    label: "Portfólio",    icon: Shield },
-  { id: "integracoes",  label: "Integrações",  icon: Plug },
+  { id: "perfil",      label: "Perfil",      icon: User },
+  { id: "custos",      label: "Custos",      icon: DollarSign },
+  { id: "orcamentos",  label: "Orçamentos",  icon: FileText },
+  { id: "whatsapp",    label: "WhatsApp",    icon: MessageCircle },
+  { id: "estoque",     label: "Estoque",     icon: Bell },
+  { id: "portfolio",   label: "Portfólio",   icon: Shield },
+  { id: "integracoes", label: "Integrações", icon: Plug },
+  { id: "assinatura",  label: "Assinatura",  icon: Zap },
 ];
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -116,7 +118,9 @@ function InputRow({ label, tip, children }: { label: string; tip?: string; child
 // ─── Página ───────────────────────────────────────────────────
 
 export function ConfiguracoesClient({ initialUser, initialSettings, infinitypayHandle, whatsappConnected, plan, subscriptionStatus, currentPeriodEnd, hasStripeId }: Props) {
-  const [tab, setTab]             = useState<TabId>("perfil");
+  const searchParams = useSearchParams();
+  const initialTab   = (searchParams.get("tab") as TabId) ?? "perfil";
+  const [tab, setTab]             = useState<TabId>(initialTab);
   const [u, setU]                 = useState<UserData>(initialUser);
   const [s, setS]                 = useState<SettingsData>(initialSettings);
   const [newHandle, setNewHandle] = useState("");
@@ -205,14 +209,6 @@ export function ConfiguracoesClient({ initialUser, initialSettings, infinitypayH
             </div>
           </Section>
 
-          <Section title="Plano de assinatura">
-            <BillingSection
-              plan={plan}
-              subscriptionStatus={subscriptionStatus}
-              currentPeriodEnd={currentPeriodEnd}
-              hasStripeId={hasStripeId}
-            />
-          </Section>
         </>
       )}
 
@@ -560,6 +556,16 @@ export function ConfiguracoesClient({ initialUser, initialSettings, infinitypayH
             />
           </Section>
         </>
+      )}
+
+      {/* ─── Assinatura ────────────────────────────────────── */}
+      {tab === "assinatura" && (
+        <BillingSection
+          plan={plan}
+          subscriptionStatus={subscriptionStatus}
+          currentPeriodEnd={currentPeriodEnd}
+          hasStripeId={hasStripeId}
+        />
       )}
 
     </div>
