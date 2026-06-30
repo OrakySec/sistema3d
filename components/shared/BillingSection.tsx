@@ -38,8 +38,8 @@ const FEATURES: PlanFeature[] = [
   { icon: Printer,      label: "Impressoras",            pro: "3",           studio: "Ilimitadas"  },
   { icon: Package,      label: "Filamentos no estoque",  pro: "10",          studio: "Ilimitados"  },
   { icon: FileText,     label: "Versões por orçamento",  pro: "2",           studio: "Ilimitadas"  },
-  { icon: MessageCircle,label: "WhatsApp automático",    pro: true,          studio: true          },
-  { icon: DollarSign,   label: "Link de pagamento",      pro: true,          studio: true          },
+  { icon: MessageCircle,label: "WhatsApp automático",    pro: false,         studio: true          },
+  { icon: DollarSign,   label: "Link de pagamento",      pro: false,         studio: true          },
   { icon: Image,        label: "Portfólio público",      pro: false,         studio: true          },
   { icon: Infinity,     label: "Tudo ilimitado",         pro: false,         studio: true          },
 ];
