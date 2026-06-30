@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useMemo, useTransition, useEffect } from "react";
+import { useState, useMemo, useTransition } from "react";
 import {
   DollarSign, TrendingUp, TrendingDown, Wallet,
   Plus, ArrowUpRight, ArrowDownRight,
-  Receipt, Pencil, Trash2,
+  Receipt, Pencil, Trash2, ShoppingBag,
 } from "lucide-react";
 import { useForm, type Resolver } from "react-hook-form";
 import { z } from "zod";
@@ -14,6 +14,7 @@ import { ExpensesPieChart }  from "@/components/financeiro/ExpensesPieChart";
 import { ProfitAreaChart }   from "@/components/financeiro/ProfitAreaChart";
 import { CrudDialog, FormField, DialogActions, inputCls, selectCls } from "@/components/shared/CrudDialog";
 import { createExpense, updateExpense, deleteExpense } from "@/lib/actions/expenses";
+import { createRevenue, deleteRevenue } from "@/lib/actions/revenues";
 
 // ─── Enums ───────────────────────────────────────────────────
 
@@ -158,6 +159,92 @@ function ExpenseDialog({ expense, onClose }: { expense?: Expense; onClose: () =>
   );
 }
 
+// ─── Modal de venda ───────────────────────────────────────────
+
+const revenueSchema = z.object({
+  description:    z.string().min(2, "Descrição obrigatória"),
+  grossAmount:    z.coerce.number().positive("Valor obrigatório"),
+  productionCost: z.coerce.number().min(0, "Informe o custo (0 se não houver)"),
+  date:           z.string().min(1, "Data obrigatória"),
+  notes:          z.string().optional(),
+});
+type RevenueForm = z.infer<typeof revenueSchema>;
+
+function RevenueDialog({ onClose }: { onClose: () => void }) {
+  const [pending, startTransition] = useTransition();
+  const { register, handleSubmit, watch, formState: { errors } } = useForm<RevenueForm>({
+    resolver: zodResolver(revenueSchema) as Resolver<RevenueForm>,
+    defaultValues: { date: new Date().toISOString().split("T")[0], productionCost: 0 },
+  });
+
+  const gross = watch("grossAmount") ?? 0;
+  const cost  = watch("productionCost") ?? 0;
+  const profit = Number(gross) - Number(cost);
+
+  function onSubmit(data: RevenueForm) {
+    const fd = new FormData();
+    Object.entries(data).forEach(([k, v]) => v !== undefined && fd.append(k, String(v)));
+    startTransition(async () => {
+      await createRevenue(fd);
+      onClose();
+    });
+  }
+
+  return (
+    <CrudDialog
+      title="Registrar Venda"
+      subtitle="Registre uma venda manualmente sem criar um orçamento"
+      icon={ShoppingBag}
+      onClose={onClose}
+    >
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormField label="Descrição" error={errors.description?.message} className="sm:col-span-2">
+            <input {...register("description")} placeholder="Ex: Suporte de celular personalizado" className={inputCls} />
+          </FormField>
+
+          <FormField label="Valor cobrado (R$)" error={errors.grossAmount?.message}>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-text-muted">R$</span>
+              <input {...register("grossAmount")} type="number" min={0.01} step={0.01} placeholder="0,00" className={`${inputCls} pl-8`} />
+            </div>
+          </FormField>
+
+          <FormField label="Custo de produção (R$)" error={errors.productionCost?.message}>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-text-muted">R$</span>
+              <input {...register("productionCost")} type="number" min={0} step={0.01} placeholder="0,00" className={`${inputCls} pl-8`} />
+            </div>
+          </FormField>
+
+          {(gross > 0 || cost > 0) && (
+            <div className="sm:col-span-2 flex items-center justify-between rounded-lg border border-border bg-surface-hover px-4 py-2.5">
+              <span className="text-sm text-text-secondary">Lucro líquido</span>
+              <span className={`font-display text-lg font-bold ${profit >= 0 ? "text-success" : "text-error"}`}>
+                {profit.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+              </span>
+            </div>
+          )}
+
+          <FormField label="Data" error={errors.date?.message} className="sm:col-span-2">
+            <input {...register("date")} type="date" className={inputCls} />
+          </FormField>
+
+          <FormField label="Observações" className="sm:col-span-2">
+            <textarea
+              {...register("notes")}
+              rows={2}
+              placeholder="Cliente, canal de venda, detalhes..."
+              className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+          </FormField>
+        </div>
+        <DialogActions onClose={onClose} loading={pending} submitLabel="Registrar venda" />
+      </form>
+    </CrudDialog>
+  );
+}
+
 // ─── Componentes auxiliares ───────────────────────────────────
 
 function MetricCard({ title, value, sub, icon: Icon, color }: {
@@ -202,11 +289,12 @@ function EmptyState({ message }: { message: string }) {
 type TabType = "visao-geral" | "receitas" | "despesas";
 
 export function FinanceiroClient({ initialRevenues, initialExpenses, monthlyData, profitData }: FinanceiroClientProps) {
-  const [tab, setTab]               = useState<TabType>("visao-geral");
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing]       = useState<Expense | undefined>();
-  const [filterCat, setFilterCat]   = useState<string>("ALL");
-  const [, startTransition]         = useTransition();
+  const [tab, setTab]                   = useState<TabType>("visao-geral");
+  const [dialogOpen, setDialogOpen]     = useState(false);
+  const [revenueDialog, setRevenueDialog] = useState(false);
+  const [editing, setEditing]           = useState<Expense | undefined>();
+  const [filterCat, setFilterCat]       = useState<string>("ALL");
+  const [, startTransition]             = useTransition();
 
   const now   = new Date();
   const monthRevenues = initialRevenues.filter((r) => {
@@ -244,6 +332,11 @@ export function FinanceiroClient({ initialRevenues, initialExpenses, monthlyData
     startTransition(() => deleteExpense(id));
   }
 
+  function handleDeleteRevenue(id: string) {
+    if (!confirm("Remover esta receita?")) return;
+    startTransition(async () => { await deleteRevenue(id); });
+  }
+
   function openEdit(e: Expense) { setEditing(e); setDialogOpen(true); }
   function openNew()             { setEditing(undefined); setDialogOpen(true); }
   function closeDialog()         { setDialogOpen(false); setEditing(undefined); }
@@ -262,13 +355,22 @@ export function FinanceiroClient({ initialRevenues, initialExpenses, monthlyData
             {now.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
           </p>
         </div>
-        <button
-          onClick={openNew}
-          className="flex items-center gap-2 rounded-lg gradient-primary px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
-        >
-          <Plus className="h-4 w-4" />
-          Registrar Despesa
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setRevenueDialog(true)}
+            className="flex items-center gap-2 rounded-lg border border-success/40 bg-success-subtle px-4 py-2.5 text-sm font-semibold text-success transition-colors hover:bg-success/20"
+          >
+            <ShoppingBag className="h-4 w-4" />
+            Registrar Venda
+          </button>
+          <button
+            onClick={openNew}
+            className="flex items-center gap-2 rounded-lg gradient-primary px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+          >
+            <Plus className="h-4 w-4" />
+            Registrar Despesa
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -363,21 +465,25 @@ export function FinanceiroClient({ initialRevenues, initialExpenses, monthlyData
         <div className="rounded-xl border border-border bg-surface overflow-hidden">
           {initialRevenues.length > 0 ? (
             <>
-              <div className="hidden grid-cols-[1fr_100px_100px_100px_90px] gap-4 border-b border-border px-5 py-3 text-xs font-medium text-text-muted sm:grid">
+              <div className="hidden grid-cols-[1fr_100px_100px_100px_90px_40px] gap-4 border-b border-border px-5 py-3 text-xs font-medium text-text-muted sm:grid">
                 <span>Descrição</span>
                 <span className="text-right">Receita</span>
                 <span className="text-right">Custo</span>
                 <span className="text-right">Lucro</span>
                 <span className="text-right">Data</span>
+                <span />
               </div>
               <div className="divide-y divide-border">
                 {initialRevenues.map((r) => (
-                  <div key={r.id} className="grid grid-cols-1 sm:grid-cols-[1fr_100px_100px_100px_90px] items-center gap-4 px-5 py-3.5 hover:bg-surface-hover">
+                  <div key={r.id} className="group grid grid-cols-1 sm:grid-cols-[1fr_100px_100px_100px_90px_40px] items-center gap-4 px-5 py-3.5 hover:bg-surface-hover">
                     <div className="flex items-center gap-3">
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-success-subtle">
                         <ArrowUpRight className="h-4 w-4 text-success" />
                       </div>
-                      <p className="text-sm font-medium text-text-primary truncate">{r.description}</p>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-text-primary truncate">{r.description}</p>
+                        {r.notes && <p className="text-xs text-text-muted truncate">{r.notes}</p>}
+                      </div>
                     </div>
                     <p className="text-sm font-semibold text-success sm:text-right">
                       {r.grossAmount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
@@ -391,6 +497,11 @@ export function FinanceiroClient({ initialRevenues, initialExpenses, monthlyData
                     <p className="text-xs text-text-muted sm:text-right">
                       {new Date(r.date).toLocaleDateString("pt-BR")}
                     </p>
+                    <div className="hidden sm:flex opacity-0 transition-opacity group-hover:opacity-100 justify-end">
+                      <button onClick={() => handleDeleteRevenue(r.id)} className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted hover:bg-error-subtle hover:text-error transition-colors">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -497,6 +608,7 @@ export function FinanceiroClient({ initialRevenues, initialExpenses, monthlyData
       )}
 
       {dialogOpen && <ExpenseDialog expense={editing} onClose={closeDialog} />}
+      {revenueDialog && <RevenueDialog onClose={() => setRevenueDialog(false)} />}
     </>
   );
 }
