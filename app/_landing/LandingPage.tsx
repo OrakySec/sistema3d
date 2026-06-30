@@ -529,6 +529,134 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ── Preços ─────────────────────────────────────────────────── */}
+      <section style={{ padding: "80px 24px", background: "#0D0D0F" }}>
+        <div style={{ maxWidth: 900, margin: "0 auto" }}>
+          <Reveal>
+            <div style={{ textAlign: "center", marginBottom: 48 }}>
+              <div style={{ color: "#F97316", fontSize: 13, fontWeight: 600, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.08em" }}>Planos</div>
+              <h2 style={{ fontSize: "clamp(26px, 4vw, 40px)", fontWeight: 800, letterSpacing: "-0.02em", marginBottom: 12 }}>Simples e sem surpresa</h2>
+              <p style={{ color: "#A1A1AA", fontSize: 15, lineHeight: 1.7 }}>
+                Comece grátis. Faça upgrade quando precisar de mais.
+              </p>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#22C55E15", border: "1px solid #22C55E30", borderRadius: 20, padding: "5px 14px", fontSize: 13, color: "#22C55E", marginTop: 12 }}>
+                <Star size={12} />
+                90% de desconto no primeiro mês — aplicado automaticamente
+              </div>
+            </div>
+          </Reveal>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 16 }}>
+            {/* Grátis */}
+            <Reveal delay={0}>
+              <div style={{ background: "#111113", border: "1px solid #27272A", borderRadius: 16, padding: "28px 24px", display: "flex", flexDirection: "column", gap: 20, height: "100%" }}>
+                <div>
+                  <p style={{ fontSize: 13, color: "#A1A1AA", marginBottom: 6 }}>Grátis</p>
+                  <p style={{ fontSize: 36, fontWeight: 800, color: "#FAFAFA", lineHeight: 1 }}>R$ 0<span style={{ fontSize: 14, fontWeight: 400, color: "#A1A1AA" }}>/mês</span></p>
+                </div>
+                <ul style={{ display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
+                  {[
+                    "20 orçamentos por mês",
+                    "5 clientes cadastrados",
+                    "1 impressora",
+                    "1 versão por orçamento",
+                    "Kanban de produção",
+                    "Financeiro completo",
+                    "3 filamentos no estoque",
+                  ].map((f) => (
+                    <li key={f} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#A1A1AA" }}>
+                      <Check size={13} color="#22C55E" />
+                      {f}
+                    </li>
+                  ))}
+                  {["WhatsApp automático", "Pagamento no link", "Portfólio público"].map((f) => (
+                    <li key={f} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#3F3F46" }}>
+                      <span style={{ width: 13, height: 13, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "#3F3F46", fontSize: 11 }}>—</span>
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+                <Link href="/register" style={{ display: "block", textAlign: "center", background: "#18181B", color: "#A1A1AA", textDecoration: "none", borderRadius: 10, padding: "12px", fontSize: 14, fontWeight: 600, border: "1px solid #27272A" }}>
+                  Começar grátis
+                </Link>
+              </div>
+            </Reveal>
+
+            {/* Pro */}
+            <Reveal delay={80}>
+              <div style={{ background: "#111113", border: "2px solid #F97316", borderRadius: 16, padding: "28px 24px", display: "flex", flexDirection: "column", gap: 20, height: "100%", position: "relative" }}>
+                <div style={{ position: "absolute", top: -12, left: "50%", transform: "translateX(-50%)", background: "linear-gradient(135deg, #F97316, #EA6C0A)", color: "#fff", borderRadius: 20, padding: "3px 14px", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>
+                  MAIS POPULAR
+                </div>
+                <div>
+                  <p style={{ fontSize: 13, color: "#A1A1AA", marginBottom: 6 }}>Pro</p>
+                  <p style={{ fontSize: 36, fontWeight: 800, color: "#FAFAFA", lineHeight: 1 }}>R$ 49<span style={{ fontSize: 14, fontWeight: 400, color: "#A1A1AA" }}>/mês</span></p>
+                  <p style={{ fontSize: 12, color: "#22C55E", marginTop: 4 }}>R$ 4,90 no primeiro mês</p>
+                </div>
+                <ul style={{ display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
+                  {[
+                    "Orçamentos ilimitados",
+                    "20 clientes cadastrados",
+                    "3 impressoras",
+                    "2 versões por orçamento",
+                    "Kanban de produção",
+                    "Financeiro completo",
+                    "10 filamentos no estoque",
+                    "WhatsApp automático",
+                    "Pagamento no link",
+                  ].map((f) => (
+                    <li key={f} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#A1A1AA" }}>
+                      <Check size={13} color="#22C55E" />
+                      {f}
+                    </li>
+                  ))}
+                  {["Portfólio público"].map((f) => (
+                    <li key={f} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#3F3F46" }}>
+                      <span style={{ width: 13, height: 13, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 11 }}>—</span>
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+                <Link href="/register" style={{ display: "block", textAlign: "center", background: "linear-gradient(135deg, #F97316, #EA6C0A)", color: "#fff", textDecoration: "none", borderRadius: 10, padding: "12px", fontSize: 14, fontWeight: 700 }}>
+                  Assinar Pro
+                </Link>
+              </div>
+            </Reveal>
+
+            {/* Estúdio */}
+            <Reveal delay={160}>
+              <div style={{ background: "#111113", border: "1px solid #27272A", borderRadius: 16, padding: "28px 24px", display: "flex", flexDirection: "column", gap: 20, height: "100%" }}>
+                <div>
+                  <p style={{ fontSize: 13, color: "#A1A1AA", marginBottom: 6 }}>Estúdio</p>
+                  <p style={{ fontSize: 36, fontWeight: 800, color: "#FAFAFA", lineHeight: 1 }}>R$ 99<span style={{ fontSize: 14, fontWeight: 400, color: "#A1A1AA" }}>/mês</span></p>
+                  <p style={{ fontSize: 12, color: "#22C55E", marginTop: 4 }}>R$ 9,90 no primeiro mês</p>
+                </div>
+                <ul style={{ display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
+                  {[
+                    "Tudo do Pro, ilimitado",
+                    "Clientes ilimitados",
+                    "Impressoras ilimitadas",
+                    "Versões ilimitadas",
+                    "Filamentos ilimitados",
+                    "WhatsApp automático",
+                    "Pagamento no link",
+                    "Portfólio público",
+                  ].map((f) => (
+                    <li key={f} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#A1A1AA" }}>
+                      <Check size={13} color="#F97316" />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+                <Link href="/register" style={{ display: "block", textAlign: "center", background: "#18181B", color: "#F97316", textDecoration: "none", borderRadius: 10, padding: "12px", fontSize: 14, fontWeight: 700, border: "1px solid #F9731640" }}>
+                  Assinar Estúdio
+                </Link>
+              </div>
+            </Reveal>
+          </div>
+        </div>
+      </section>
+
       {/* ── CTA final ──────────────────────────────────────────────── */}
       <section style={{ padding: "100px 24px", textAlign: "center" }}>
         <Reveal>
