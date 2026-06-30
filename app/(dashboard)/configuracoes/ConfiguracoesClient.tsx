@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import {
   User, DollarSign, FileText, MessageCircle,
   Bell, Shield, Save, Loader2, Zap,
-  ExternalLink, Copy, CheckCircle2,
+  ExternalLink, Copy, CheckCircle2, Plug, Eye, EyeOff,
 } from "lucide-react";
 import { SettingToggle } from "@/components/shared/SettingToggle";
 import { InfoTip }        from "@/components/shared/InfoTip";
@@ -52,19 +52,21 @@ interface Props {
   initialUser: UserData;
   initialSettings: SettingsData;
   hasInfinityPayKey: boolean;
+  infinitypayKeyMasked?: string;
 }
 
 // ─── Componentes auxiliares ───────────────────────────────────
 
-type TabId = "perfil" | "custos" | "orcamentos" | "whatsapp" | "estoque" | "portfolio";
+type TabId = "perfil" | "custos" | "orcamentos" | "whatsapp" | "estoque" | "portfolio" | "integracoes";
 
 const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
-  { id: "perfil",     label: "Perfil",     icon: User },
-  { id: "custos",     label: "Custos",     icon: DollarSign },
-  { id: "orcamentos", label: "Orçamentos", icon: FileText },
-  { id: "whatsapp",   label: "WhatsApp",   icon: MessageCircle },
-  { id: "estoque",    label: "Estoque",    icon: Bell },
-  { id: "portfolio",  label: "Portfólio",  icon: Shield },
+  { id: "perfil",       label: "Perfil",       icon: User },
+  { id: "custos",       label: "Custos",       icon: DollarSign },
+  { id: "orcamentos",   label: "Orçamentos",   icon: FileText },
+  { id: "whatsapp",     label: "WhatsApp",     icon: MessageCircle },
+  { id: "estoque",      label: "Estoque",      icon: Bell },
+  { id: "portfolio",    label: "Portfólio",    icon: Shield },
+  { id: "integracoes",  label: "Integrações",  icon: Plug },
 ];
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -106,12 +108,14 @@ function InputRow({ label, tip, children }: { label: string; tip?: string; child
 
 // ─── Página ───────────────────────────────────────────────────
 
-export function ConfiguracoesClient({ initialUser, initialSettings, hasInfinityPayKey }: Props) {
-  const [tab, setTab]       = useState<TabId>("perfil");
-  const [u, setU]           = useState<UserData>(initialUser);
-  const [s, setS]           = useState<SettingsData>(initialSettings);
-  const [saved, setSaved]   = useState(false);
-  const [copied, setCopied] = useState(false);
+export function ConfiguracoesClient({ initialUser, initialSettings, hasInfinityPayKey, infinitypayKeyMasked }: Props) {
+  const [tab, setTab]             = useState<TabId>("perfil");
+  const [u, setU]                 = useState<UserData>(initialUser);
+  const [s, setS]                 = useState<SettingsData>(initialSettings);
+  const [infinitypayKey, setInfinitypayKey] = useState("");
+  const [showKey, setShowKey]     = useState(false);
+  const [saved, setSaved]         = useState(false);
+  const [copied, setCopied]       = useState(false);
   const [pending, startTransition] = useTransition();
 
   const setUser = <K extends keyof UserData>(key: K, value: UserData[K]) =>
@@ -122,9 +126,10 @@ export function ConfiguracoesClient({ initialUser, initialSettings, hasInfinityP
 
   function handleSave() {
     startTransition(async () => {
-      const res = await saveSettings({ ...u, ...s });
+      const res = await saveSettings({ ...u, ...s, infinitypayApiKey: infinitypayKey || undefined });
       if (!res?.error) {
         setSaved(true);
+        setInfinitypayKey("");
         setTimeout(() => setSaved(false), 3000);
       }
     });
@@ -455,6 +460,76 @@ export function ConfiguracoesClient({ initialUser, initialSettings, hasInfinityP
             enabled={s.lowStockAlertEnabled}
             onChange={(v) => set("lowStockAlertEnabled", v)}
           />
+        </Section>
+      )}
+
+      {/* ─── Integrações ───────────────────────────────────── */}
+      {tab === "integracoes" && (
+        <Section title="Pagamentos">
+          <div className="rounded-xl border border-border bg-surface p-5">
+            <div className="flex items-start gap-4 mb-5">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-surface-hover">
+                <DollarSign className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-text-primary">InfinityPay</p>
+                <p className="text-xs text-text-muted mt-0.5">
+                  Permite gerar links de pagamento diretamente nos orçamentos enviados ao cliente.
+                </p>
+              </div>
+              {hasInfinityPayKey && (
+                <span className="ml-auto shrink-0 flex items-center gap-1.5 rounded-full border border-success/30 bg-success-subtle px-2.5 py-0.5 text-xs font-medium text-success">
+                  <CheckCircle2 className="h-3 w-3" />
+                  Configurado
+                </span>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-3">
+              {hasInfinityPayKey && infinitypayKeyMasked && (
+                <div className="rounded-lg border border-border bg-background px-3 py-2.5 flex items-center gap-2">
+                  <span className="text-xs text-text-muted flex-1 font-mono">{infinitypayKeyMasked}</span>
+                  <span className="text-xs text-success font-medium">Chave ativa</span>
+                </div>
+              )}
+
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-text-secondary">
+                  {hasInfinityPayKey ? "Substituir chave da API" : "Chave da API"}
+                </label>
+                <div className="relative">
+                  <input
+                    type={showKey ? "text" : "password"}
+                    value={infinitypayKey}
+                    onChange={(e) => setInfinitypayKey(e.target.value)}
+                    placeholder={hasInfinityPayKey ? "Digite para substituir a chave atual" : "Cole sua chave da API aqui"}
+                    className={`${inputCls} pr-10`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowKey((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary transition-colors"
+                  >
+                    {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                <p className="mt-1.5 text-xs text-text-muted">
+                  Encontre sua chave em{" "}
+                  <a href="https://infinitypay.io" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-0.5">
+                    infinitypay.io
+                    <ExternalLink className="h-3 w-3" />
+                  </a>{" "}
+                  → Desenvolvedor → API Keys
+                </p>
+              </div>
+
+              {infinitypayKey && (
+                <div className="rounded-lg border border-info/20 bg-info-subtle px-3 py-2 text-xs text-text-secondary">
+                  💡 Clique em <strong>Salvar alterações</strong> para ativar a chave.
+                </div>
+              )}
+            </div>
+          </div>
         </Section>
       )}
 

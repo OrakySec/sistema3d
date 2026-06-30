@@ -8,9 +8,10 @@ import { z } from "zod";
 
 const settingsSchema = z.object({
   // Perfil
-  businessName: z.string().optional(),
-  whatsapp:     z.string().optional(),
-  city:         z.string().optional(),
+  businessName:      z.string().optional(),
+  whatsapp:          z.string().optional(),
+  city:              z.string().optional(),
+  infinitypayApiKey: z.string().optional(),
 
   // Custos
   energyCostKwh:       z.coerce.number().min(0).optional(),
@@ -56,16 +57,17 @@ export async function saveSettings(data: z.infer<typeof settingsSchema>) {
   const parsed = settingsSchema.safeParse(data);
   if (!parsed.success) return { error: "Dados inválidos." };
 
-  const { businessName, whatsapp, city, ...settingsData } = parsed.data;
+  const { businessName, whatsapp, city, infinitypayApiKey, ...settingsData } = parsed.data;
 
   await prisma.$transaction([
     // Atualiza perfil do usuário
     prisma.user.update({
       where: { id: userId },
       data: {
-        businessName: businessName ?? undefined,
-        whatsapp:     whatsapp     ?? undefined,
-        city:         city         ?? undefined,
+        businessName:      businessName      ?? undefined,
+        whatsapp:          whatsapp          ?? undefined,
+        city:              city              ?? undefined,
+        ...(infinitypayApiKey ? { infinitypayApiKey, infinitypayEnabled: true } : {}),
       },
     }),
     // Atualiza configurações (upsert — cria se não existir)
