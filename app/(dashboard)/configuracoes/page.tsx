@@ -14,13 +14,14 @@ export default async function ConfiguracoesPage() {
   const [user, settings] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
-      select: { businessName: true, whatsapp: true, city: true },
+      select: { businessName: true, whatsapp: true, city: true, infinitypayApiKey: true },
     }),
     prisma.userSettings.findUnique({ where: { userId } }),
   ]);
 
   return (
     <ConfiguracoesClient
+      hasInfinityPayKey={!!user?.infinitypayApiKey}
       initialUser={{
         businessName: user?.businessName ?? "",
         whatsapp:     user?.whatsapp     ?? "",

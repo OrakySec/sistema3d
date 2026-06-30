@@ -51,6 +51,7 @@ interface SettingsData {
 interface Props {
   initialUser: UserData;
   initialSettings: SettingsData;
+  hasInfinityPayKey: boolean;
 }
 
 // ─── Componentes auxiliares ───────────────────────────────────
@@ -105,7 +106,7 @@ function InputRow({ label, tip, children }: { label: string; tip?: string; child
 
 // ─── Página ───────────────────────────────────────────────────
 
-export function ConfiguracoesClient({ initialUser, initialSettings }: Props) {
+export function ConfiguracoesClient({ initialUser, initialSettings, hasInfinityPayKey }: Props) {
   const [tab, setTab]       = useState<TabId>("perfil");
   const [u, setU]           = useState<UserData>(initialUser);
   const [s, setS]           = useState<SettingsData>(initialSettings);
@@ -312,6 +313,8 @@ export function ConfiguracoesClient({ initialUser, initialSettings }: Props) {
               info="Quando ativado, o link inclui um botão de pagamento. Você define o percentual de entrada."
               enabled={s.paymentLinkEnabled}
               onChange={(v) => set("paymentLinkEnabled", v)}
+              disabled={!hasInfinityPayKey}
+              disabledReason="⚠ Configure a chave da API InfinityPay antes de ativar."
             >
               <div className="flex items-center gap-3">
                 <label className="text-sm text-text-secondary whitespace-nowrap">Entrada de:</label>
