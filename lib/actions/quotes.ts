@@ -8,6 +8,13 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import crypto from "crypto";
 
+const versionSchema = z.object({
+  label:        z.string().min(1),
+  description:  z.string().optional(),
+  paintingHours: z.number().min(0),
+  profitMargin:  z.number().min(0),
+});
+
 const createQuoteSchema = z.object({
   pieceName:      z.string().min(1),
   description:    z.string().optional(),
@@ -19,6 +26,7 @@ const createQuoteSchema = z.object({
   profitMargin:   z.coerce.number().min(0),
   paintingHours:  z.coerce.number().min(0),
   expirationDays: z.coerce.number().min(1).max(30).default(5),
+  versions:       z.string().optional(), // JSON serializado
 });
 
 export async function createQuote(formData: FormData) {
@@ -28,10 +36,16 @@ export async function createQuote(formData: FormData) {
   const parsed = createQuoteSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: "Dados inválidos." };
 
-  const { expirationDays, ...data } = parsed.data;
+  const { expirationDays, versions: versionsRaw, ...data } = parsed.data;
   const userId = session.user.id;
 
   // Buscar dados necessários para o cálculo
+  // Parsear versões adicionais
+  let parsedVersions: z.infer<typeof versionSchema>[] = [];
+  if (versionsRaw) {
+    try { parsedVersions = z.array(versionSchema).parse(JSON.parse(versionsRaw)); } catch {}
+  }
+
   const [printer, filament, settings] = await Promise.all([
     data.printerId  ? prisma.printer.findFirst({ where: { id: data.printerId, userId } })  : null,
     data.filamentId ? prisma.filament.findFirst({ where: { id: data.filamentId, userId } }) : null,
@@ -55,6 +69,30 @@ export async function createQuote(formData: FormData) {
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + expirationDays);
 
+  // Calcular breakdown de cada versão adicional
+  const calcParams = {
+    filamentGrams:             data.filamentGrams,
+    printHours:                data.printHours,
+    filamentCostPerKg:         filament?.costPerKg         ?? 85,
+    printerPowerWatts:         printer?.powerWatts         ?? 200,
+    printerPurchasePrice:      printer?.purchasePrice      ?? 1200,
+    printerEstimatedHours:     printer?.estimatedHours     ?? 3000,
+    printerMonthlyMaintenance: printer?.monthlyMaintenance ?? 0,
+    energyCostKwh:             settings?.energyCostKwh     ?? 0.75,
+    paintingHourlyRate:        settings?.paintingHourlyRate ?? 0,
+  };
+
+  const versionData = parsedVersions.map((v, i) => {
+    const vb = calculateQuote({ ...calcParams, profitMargin: v.profitMargin, paintingHours: v.paintingHours });
+    return {
+      label:       v.label,
+      description: v.description,
+      totalPrice:  vb.totalPrice,
+      details:     vb as unknown as Record<string, unknown>,
+      order:       i,
+    };
+  });
+
   const quote = await prisma.quote.create({
     data: {
       userId,
@@ -71,7 +109,7 @@ export async function createQuote(formData: FormData) {
       expiresAt,
       publicToken: crypto.randomBytes(16).toString("hex"),
       status: "DRAFT",
-      // Criar card no Kanban automaticamente
+      versions: versionData.length > 0 ? { create: versionData } : undefined,
       kanbanCard: {
         create: {
           userId,

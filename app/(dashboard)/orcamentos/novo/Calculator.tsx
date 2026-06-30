@@ -190,6 +190,13 @@ export function Calculator({ printers, filaments, clients, settings }: Calculato
     fd.append("profitMargin",   String(profitMargin));
     fd.append("paintingHours",  String(paintingHours));
     fd.append("expirationDays", String(expirationDays));
+    if (versions.length > 0) {
+      fd.append("versions", JSON.stringify(versions.map((v) => ({
+        label:         v.label,
+        paintingHours: v.paintingHours,
+        profitMargin:  v.profitMargin,
+      }))));
+    }
     startTransition(async () => { await createQuote(fd); });
   }
 
