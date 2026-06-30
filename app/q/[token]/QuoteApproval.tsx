@@ -183,7 +183,7 @@ export function QuoteApproval({ token, initialData, initialError }: QuoteApprova
   const maker = quote.user.businessName ?? quote.user.name ?? "Maker 3D";
   const depositPercent = quote.user.settings?.paymentDepositPercent ?? 50;
   const depositValue   = displayPrice * (depositPercent / 100);
-  const showPayment    = !!(quote.user.settings?.paymentLinkEnabled && quote.user.infinitypayHandle);
+  const showPayment    = !!quote.user.infinitypayHandle;
 
   // ── Tela de sucesso — aprovado ────────────────────────────
   if (action === "approved") {

@@ -20,7 +20,6 @@ export async function POST(_req: Request, { params }: Props) {
           infinitypayHandle: true,
           settings: {
             select: {
-              paymentLinkEnabled:    true,
               paymentDepositPercent: true,
             },
           },
@@ -32,7 +31,6 @@ export async function POST(_req: Request, { params }: Props) {
   if (!quote) return NextResponse.json({ error: "Orçamento não encontrado" }, { status: 404 });
   if (quote.status !== "APPROVED") return NextResponse.json({ error: "Orçamento não aprovado" }, { status: 400 });
   if (!quote.user.infinitypayHandle) return NextResponse.json({ error: "Pagamento não configurado" }, { status: 400 });
-  if (!quote.user.settings?.paymentLinkEnabled) return NextResponse.json({ error: "Pagamento não ativado" }, { status: 400 });
 
   const depositPercent = quote.user.settings.paymentDepositPercent ?? 50;
   const depositValue   = Math.round(quote.totalPrice * (depositPercent / 100) * 100); // em centavos
