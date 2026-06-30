@@ -337,7 +337,7 @@ export function ConfiguracoesClient({ initialUser, initialSettings, hasInfinityP
               enabled={s.paymentLinkEnabled}
               onChange={(v) => set("paymentLinkEnabled", v)}
               disabled={!hasInfinityPayKey}
-              disabledReason="⚠ Configure a chave da API InfinityPay antes de ativar."
+              disabledReason="⚠ Configure o token da InfinityPay em Integrações antes de ativar."
             >
               <div className="flex items-center gap-3">
                 <label className="text-sm text-text-secondary whitespace-nowrap">Entrada de:</label>
@@ -533,20 +533,20 @@ export function ConfiguracoesClient({ initialUser, initialSettings, hasInfinityP
               {hasInfinityPayKey && infinitypayKeyMasked && (
                 <div className="rounded-lg border border-border bg-background px-3 py-2.5 flex items-center gap-2">
                   <span className="text-xs text-text-muted flex-1 font-mono">{infinitypayKeyMasked}</span>
-                  <span className="text-xs text-success font-medium">Chave ativa</span>
+                  <span className="text-xs text-success font-medium">Token ativo</span>
                 </div>
               )}
 
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-text-secondary">
-                  {hasInfinityPayKey ? "Substituir chave da API" : "Chave da API"}
+                  {hasInfinityPayKey ? "Substituir token de acesso" : "Token de acesso (Checkout API)"}
                 </label>
                 <div className="relative">
                   <input
                     type={showKey ? "text" : "password"}
                     value={infinitypayKey}
                     onChange={(e) => setInfinitypayKey(e.target.value)}
-                    placeholder={hasInfinityPayKey ? "Digite para substituir a chave atual" : "Cole sua chave da API aqui"}
+                    placeholder={hasInfinityPayKey ? "Digite para substituir o token atual" : "Cole seu token de acesso aqui"}
                     className={`${inputCls} pr-10`}
                   />
                   <button
@@ -558,12 +558,12 @@ export function ConfiguracoesClient({ initialUser, initialSettings, hasInfinityP
                   </button>
                 </div>
                 <p className="mt-1.5 text-xs text-text-muted">
-                  Encontre sua chave em{" "}
-                  <a href="https://www.infinitepay.io" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-0.5">
-                    infinitepay.io
+                  Token fornecido pela InfinityPay ao contratar o Checkout. Acesse{" "}
+                  <a href="https://www.infinitepay.io/desenvolvedores" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-0.5">
+                    infinitepay.io/desenvolvedores
                     <ExternalLink className="h-3 w-3" />
                   </a>{" "}
-                  → Desenvolvedor → API Keys
+                  ou solicite em <strong>ecommerce@infinitepay.io</strong>
                 </p>
               </div>
 

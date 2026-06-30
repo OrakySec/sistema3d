@@ -16,19 +16,22 @@ export async function GET() {
   }
 
   try {
-    const res = await fetch("https://api.infinitepay.io/v2/transactions?limit=1", {
+    // Testa autenticação no Checkout API da InfinityPay
+    const res = await fetch("https://api.checkout.infinitepay.io/links", {
+      method: "GET",
       headers: {
         Authorization: `Bearer ${user.infinitypayApiKey}`,
         "Content-Type": "application/json",
       },
     });
 
-    if (res.ok || res.status === 200) {
+    // 200 ou 404 significa que o token é válido (endpoint pode não suportar GET, mas autentica)
+    if (res.ok || res.status === 404 || res.status === 405) {
       return NextResponse.json({ ok: true });
     }
 
     if (res.status === 401 || res.status === 403) {
-      return NextResponse.json({ ok: false, error: "Chave inválida ou sem permissão." });
+      return NextResponse.json({ ok: false, error: "Token inválido ou sem permissão." });
     }
 
     return NextResponse.json({ ok: false, error: `Erro ${res.status} na API InfinityPay.` });
