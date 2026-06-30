@@ -6,18 +6,14 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
-const EXPENSE_CATEGORIES = [
-  "FILAMENT", "PRINTER_PARTS", "ENERGY", "MARKETING",
-  "TOOLS", "PACKAGING", "SHIPPING", "OTHER",
-] as const;
-
 const expenseSchema = z.object({
   description:    z.string().min(2),
-  category:       z.enum(EXPENSE_CATEGORIES),
+  category:       z.string().min(1),
   customCategory: z.string().optional(),
   amount:         z.coerce.number().positive(),
   date:           z.string().transform((d) => new Date(d + "T12:00:00")),
   notes:          z.string().optional(),
+  isRecurring:    z.string().optional().transform((v) => v === "true"),
 });
 
 async function getUserId() {

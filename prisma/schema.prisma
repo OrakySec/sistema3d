@@ -16,8 +16,8 @@ datasource db {
 // ─────────────────────────────────────────────────────────────
 
 enum Role {
-  ADMIN  // Super admin do sistema
-  USER   // Assinante normal
+  ADMIN // Super admin do sistema
+  USER // Assinante normal
 }
 
 enum Plan {
@@ -72,24 +72,13 @@ enum PrintCancelReason {
 }
 
 enum KanbanColumn {
-  WAITING      // Aguardando Resposta
-  APPROVED     // Aprovado
-  PRINTING     // Em Produção
-  POST_PROD    // Pós-Produção
-  READY        // Pronto para Entrega
-  DELIVERED    // Entregue / Concluído
-  CANCELLED    // Cancelado
-}
-
-enum ExpenseCategory {
-  FILAMENT
-  PRINTER_PARTS
-  ENERGY
-  MARKETING
-  TOOLS
-  PACKAGING
-  SHIPPING
-  OTHER
+  WAITING // Aguardando Resposta
+  APPROVED // Aprovado
+  PRINTING // Em Produção
+  POST_PROD // Pós-Produção
+  READY // Pronto para Entrega
+  DELIVERED // Entregue / Concluído
+  CANCELLED // Cancelado
 }
 
 enum FilamentType {
@@ -108,51 +97,52 @@ enum FilamentType {
 // ─────────────────────────────────────────────────────────────
 
 model User {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   name          String?
-  email         String   @unique
+  email         String    @unique
   emailVerified DateTime?
   password      String?
-  image         String?  // URL da logo/avatar no MinIO
-  role          Role     @default(USER)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  image         String? // URL da logo/avatar no MinIO
+  role          Role      @default(USER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   // Perfil comercial
-  businessName  String?
-  whatsapp      String?
-  city          String?
-  logoUrl       String?
+  businessName String?
+  whatsapp     String?
+  city         String?
+  logoUrl      String?
 
   // Stripe
-  plan                 Plan     @default(FREE)
-  stripeCustomerId     String?  @unique
-  stripeSubscriptionId String?  @unique
+  plan                 Plan               @default(FREE)
+  stripeCustomerId     String?            @unique
+  stripeSubscriptionId String?            @unique
   subscriptionStatus   SubscriptionStatus @default(TRIAL)
   trialEndsAt          DateTime?
   currentPeriodEnd     DateTime?
 
   // WhatsApp (Evolution API) - instância do usuário
-  evolutionInstance    String?
-  evolutionConnected   Boolean  @default(false)
+  evolutionInstance  String?
+  evolutionConnected Boolean @default(false)
 
   // InfinityPay
-  infinitypayHandle    String?  // InfinityTag do usuário (sem o $)
-  infinitypayEnabled   Boolean  @default(false)
+  infinitypayHandle  String? // InfinityTag do usuário (sem o $)
+  infinitypayEnabled Boolean @default(false)
 
   // Configurações gerais
-  settings             UserSettings?
-  whatsappTemplates    WhatsappTemplate[]
+  settings          UserSettings?
+  whatsappTemplates WhatsappTemplate[]
 
   // Dados do negócio
-  printers     Printer[]
-  clients      Client[]
-  quotes       Quote[]
-  kanbanCards  KanbanCard[]
-  expenses     Expense[]
-  revenues     Revenue[]
-  filaments    Filament[]
-  pieceLibrary PieceTemplate[]
+  printers               Printer[]
+  clients                Client[]
+  quotes                 Quote[]
+  kanbanCards            KanbanCard[]
+  expenses               Expense[]
+  expenseCategoryConfigs ExpenseCategoryConfig[]
+  revenues               Revenue[]
+  filaments              Filament[]
+  pieceLibrary           PieceTemplate[]
 
   accounts Account[]
   sessions Session[]
@@ -207,32 +197,32 @@ model UserSettings {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // Custos gerais
-  energyCostKwh        Float  @default(0.75)  // R$/kWh
-  defaultProfitMargin  Float  @default(30)    // %
-  paintingHourlyRate   Float  @default(0)     // R$/hora
+  energyCostKwh       Float @default(0.75) // R$/kWh
+  defaultProfitMargin Float @default(30) // %
+  paintingHourlyRate  Float @default(0) // R$/hora
 
   // Automações — toggles
-  autoDeductStock           Boolean @default(true)
-  lowStockAlertEnabled      Boolean @default(true)
-  quoteExpirationEnabled    Boolean @default(true)
-  quoteExpirationDays       Int     @default(5)
-  quoteReminderEnabled      Boolean @default(true)
-  paymentLinkEnabled        Boolean @default(false)
-  paymentDepositPercent     Float   @default(50) // %
-  whatsappAutoEnabled       Boolean @default(false)
-  silentHoursEnabled        Boolean @default(false)
-  silentHoursStart          String  @default("22:00")
-  silentHoursEnd            String  @default("08:00")
-  autoReplyEnabled          Boolean @default(false)
-  autoReplyMessage          String? @db.Text
-  followupEnabled           Boolean @default(false)
-  followup7DaysEnabled      Boolean @default(true)
-  followup30DaysEnabled     Boolean @default(true)
-  npsEnabled                Boolean @default(false)
-  npsDaysAfterDelivery       Int     @default(7)
-  viewTrackingEnabled       Boolean @default(true)
-  portfolioEnabled          Boolean @default(true)
-  portfolioLeadFormEnabled  Boolean @default(false)
+  autoDeductStock              Boolean @default(true)
+  lowStockAlertEnabled         Boolean @default(true)
+  quoteExpirationEnabled       Boolean @default(true)
+  quoteExpirationDays          Int     @default(5)
+  quoteReminderEnabled         Boolean @default(true)
+  paymentLinkEnabled           Boolean @default(false)
+  paymentDepositPercent        Float   @default(50) // %
+  whatsappAutoEnabled          Boolean @default(false)
+  silentHoursEnabled           Boolean @default(false)
+  silentHoursStart             String  @default("22:00")
+  silentHoursEnd               String  @default("08:00")
+  autoReplyEnabled             Boolean @default(false)
+  autoReplyMessage             String? @db.Text
+  followupEnabled              Boolean @default(false)
+  followup7DaysEnabled         Boolean @default(true)
+  followup30DaysEnabled        Boolean @default(true)
+  npsEnabled                   Boolean @default(false)
+  npsDaysAfterDelivery         Int     @default(7)
+  viewTrackingEnabled          Boolean @default(true)
+  portfolioEnabled             Boolean @default(true)
+  portfolioLeadFormEnabled     Boolean @default(false)
   portfolioTestimonialsEnabled Boolean @default(false)
 
   createdAt DateTime @default(now())
@@ -244,13 +234,13 @@ model UserSettings {
 // ─────────────────────────────────────────────────────────────
 
 model WhatsappTemplate {
-  id       String      @id @default(cuid())
-  userId   String
-  user     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  column   KanbanColumn
-  message  String      @db.Text
-  enabled  Boolean     @default(true)
-  isDefault Boolean    @default(false)
+  id        String       @id @default(cuid())
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  column    KanbanColumn
+  message   String       @db.Text
+  enabled   Boolean      @default(true)
+  isDefault Boolean      @default(false)
 
   @@unique([userId, column])
 }
@@ -260,31 +250,31 @@ model WhatsappTemplate {
 // ─────────────────────────────────────────────────────────────
 
 model Printer {
-  id              String  @id @default(cuid())
-  userId          String
-  user            User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name            String  // Ex: "Bambu Lab X1C"
-  model           String? // Ex: "X1C"
-  powerWatts      Float   // Consumo em watts
-  purchasePrice   Float   // Preço de compra em R$
-  estimatedHours  Float   @default(5000)  // Vida útil em horas
-  monthlyMaintenance Float @default(0)   // Custo mensal de manutenção R$
-  active          Boolean @default(true)
+  id                 String  @id @default(cuid())
+  userId             String
+  user               User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name               String // Ex: "Bambu Lab X1C"
+  model              String? // Ex: "X1C"
+  powerWatts         Float // Consumo em watts
+  purchasePrice      Float // Preço de compra em R$
+  estimatedHours     Float   @default(5000) // Vida útil em horas
+  monthlyMaintenance Float   @default(0) // Custo mensal de manutenção R$
+  active             Boolean @default(true)
 
   // Calculado automaticamente
   // costPerHour = (purchasePrice / estimatedHours) + (monthlyMaintenance / horasMes)
 
   // Estatísticas
-  totalHours      Float   @default(0)
-  totalPrints     Int     @default(0)
-  successCount    Int     @default(0)
-  failureCount    Int     @default(0)
+  totalHours   Float @default(0)
+  totalPrints  Int   @default(0)
+  successCount Int   @default(0)
+  failureCount Int   @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  quotes     Quote[]
-  printLogs  PrintLog[]
+  quotes    Quote[]
+  printLogs PrintLog[]
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -292,21 +282,21 @@ model Printer {
 // ─────────────────────────────────────────────────────────────
 
 model Client {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name      String
-  whatsapp  String?
-  email     String?
-  city      String?
-  notes     String?  @db.Text
-  tags      String[] // Ex: ["VIP", "atacado"]
-  npsScore  Float?   // Última nota NPS
+  id       String   @id @default(cuid())
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name     String
+  whatsapp String?
+  email    String?
+  city     String?
+  notes    String?  @db.Text
+  tags     String[] // Ex: ["VIP", "atacado"]
+  npsScore Float? // Última nota NPS
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  quotes     Quote[]
+  quotes      Quote[]
   kanbanCards KanbanCard[]
 }
 
@@ -315,55 +305,55 @@ model Client {
 // ─────────────────────────────────────────────────────────────
 
 model Quote {
-  id          String      @id @default(cuid())
-  userId      String
-  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  clientId    String?
-  client      Client?     @relation(fields: [clientId], references: [id])
-  printerId   String?
-  printer     Printer?    @relation(fields: [printerId], references: [id])
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientId  String?
+  client    Client?  @relation(fields: [clientId], references: [id])
+  printerId String?
+  printer   Printer? @relation(fields: [printerId], references: [id])
 
   // Dados da peça
-  pieceName       String
-  description     String?  @db.Text
-  photoUrl        String?  // URL no MinIO
+  pieceName   String
+  description String? @db.Text
+  photoUrl    String? // URL no MinIO
 
   // Inputs do cálculo
-  filamentGrams   Float    // Peso em gramas
-  printHours      Float    // Horas de impressão
-  profitMargin    Float    // % de lucro
-  paintingHours   Float    @default(0)
-  filamentId      String?
-  filament        Filament? @relation(fields: [filamentId], references: [id])
+  filamentGrams Float // Peso em gramas
+  printHours    Float // Horas de impressão
+  profitMargin  Float // % de lucro
+  paintingHours Float     @default(0)
+  filamentId    String?
+  filament      Filament? @relation(fields: [filamentId], references: [id])
 
   // Resultados calculados
-  filamentCost    Float    // R$
-  energyCost      Float    // R$
-  printerCost     Float    // R$
-  productionCost  Float    // Subtotal de produção
-  profitAmount    Float    // Valor do lucro
-  paintingCost    Float    @default(0)
-  totalPrice      Float    // Total final
+  filamentCost   Float // R$
+  energyCost     Float // R$
+  printerCost    Float // R$
+  productionCost Float // Subtotal de produção
+  profitAmount   Float // Valor do lucro
+  paintingCost   Float @default(0)
+  totalPrice     Float // Total final
 
   // Status e aprovação
-  status          QuoteStatus @default(DRAFT)
-  publicToken     String?     @unique // Para link público
-  expiresAt       DateTime?
-  approvedAt      DateTime?
-  rejectedAt      DateTime?
-  viewCount       Int         @default(0)
-  lastViewedAt    DateTime?
+  status       QuoteStatus @default(DRAFT)
+  publicToken  String?     @unique // Para link público
+  expiresAt    DateTime?
+  approvedAt   DateTime?
+  rejectedAt   DateTime?
+  viewCount    Int         @default(0)
+  lastViewedAt DateTime?
 
   // Versões do orçamento
-  versions        QuoteVersion[]
+  versions QuoteVersion[]
 
   // Pagamento
-  paymentLinkUrl  String?
-  depositPaid     Boolean  @default(false)
-  depositAmount   Float?
+  paymentLinkUrl String?
+  depositPaid    Boolean @default(false)
+  depositAmount  Float?
 
   // PDF
-  pdfUrl          String?
+  pdfUrl String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -375,10 +365,10 @@ model QuoteVersion {
   id          String  @id @default(cuid())
   quoteId     String
   quote       Quote   @relation(fields: [quoteId], references: [id], onDelete: Cascade)
-  label       String  // Ex: "Básico", "Com Pintura", "Premium"
+  label       String // Ex: "Básico", "Com Pintura", "Premium"
   description String?
   totalPrice  Float
-  details     Json    // Snapshot dos custos desta versão
+  details     Json // Snapshot dos custos desta versão
   order       Int     @default(0)
 
   createdAt DateTime @default(now())
@@ -389,20 +379,20 @@ model QuoteVersion {
 // ─────────────────────────────────────────────────────────────
 
 model KanbanCard {
-  id        String       @id @default(cuid())
-  userId    String
-  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  quoteId   String?      @unique
-  quote     Quote?       @relation(fields: [quoteId], references: [id], onDelete: Cascade)
-  clientId  String?
-  client    Client?      @relation(fields: [clientId], references: [id])
+  id       String  @id @default(cuid())
+  userId   String
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quoteId  String? @unique
+  quote    Quote?  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  clientId String?
+  client   Client? @relation(fields: [clientId], references: [id])
 
-  column    KanbanColumn @default(WAITING)
-  order     Int          @default(0)
-  dueDate   DateTime?
-  notes     String?      @db.Text
-  tags      String[]
-  photoUrl  String?
+  column   KanbanColumn @default(WAITING)
+  order    Int          @default(0)
+  dueDate  DateTime?
+  notes    String?      @db.Text
+  tags     String[]
+  photoUrl String?
 
   // Logs de impressão associados
   printLogs PrintLog[]
@@ -417,12 +407,12 @@ model KanbanCard {
 }
 
 model KanbanHistory {
-  id         String       @id @default(cuid())
+  id         String        @id @default(cuid())
   cardId     String
-  card       KanbanCard   @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  card       KanbanCard    @relation(fields: [cardId], references: [id], onDelete: Cascade)
   fromColumn KanbanColumn?
   toColumn   KanbanColumn
-  movedAt    DateTime     @default(now())
+  movedAt    DateTime      @default(now())
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -430,30 +420,30 @@ model KanbanHistory {
 // ─────────────────────────────────────────────────────────────
 
 model PrintLog {
-  id          String       @id @default(cuid())
-  userId      String
-  cardId      String?
-  card        KanbanCard?  @relation(fields: [cardId], references: [id])
-  printerId   String?
-  printer     Printer?     @relation(fields: [printerId], references: [id])
-  filamentId  String?
-  filament    Filament?    @relation(fields: [filamentId], references: [id])
+  id         String      @id @default(cuid())
+  userId     String
+  cardId     String?
+  card       KanbanCard? @relation(fields: [cardId], references: [id])
+  printerId  String?
+  printer    Printer?    @relation(fields: [printerId], references: [id])
+  filamentId String?
+  filament   Filament?   @relation(fields: [filamentId], references: [id])
 
-  status          PrintStatus      @default(QUEUED)
-  estimatedHours  Float
-  startedAt       DateTime?
-  completedAt     DateTime?
-  pausedAt        DateTime?
-  totalPausedMin  Int              @default(0) // Minutos totais pausado
-  pauseReason     PrintPauseReason?
-  cancelReason    PrintCancelReason?
-  cancelNote      String?
+  status         PrintStatus        @default(QUEUED)
+  estimatedHours Float
+  startedAt      DateTime?
+  completedAt    DateTime?
+  pausedAt       DateTime?
+  totalPausedMin Int                @default(0) // Minutos totais pausado
+  pauseReason    PrintPauseReason?
+  cancelReason   PrintCancelReason?
+  cancelNote     String?
 
-  photoStart      String?  // Foto ao iniciar
-  photoEnd        String?  // Foto ao concluir
+  photoStart String? // Foto ao iniciar
+  photoEnd   String? // Foto ao concluir
 
   // Notificação ao cliente ao cancelar
-  clientNotified  Boolean  @default(false)
+  clientNotified Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -476,38 +466,38 @@ model PrintStatusHistory {
 // ─────────────────────────────────────────────────────────────
 
 model Filament {
-  id            String       @id @default(cuid())
-  userId        String
-  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name          String       // Ex: "PLA Branco Polymaker"
-  brand         String?
-  type          FilamentType @default(PLA)
-  color         String?      // Nome da cor
-  colorHex      String?      // Ex: "#FFFFFF"
-  qrCode        String?      @unique // Para scanner
-  purchasedGrams Float       // Gramas compradas originalmente
-  currentGrams  Float        // Saldo atual
-  costPerKg     Float        // R$/kg
-  lowStockAlert Float        @default(200) // Alerta em gramas
-  rating        Int?         // 1-5
-  ratingNote    String?
-  supplierId    String?
-  supplier      Supplier?    @relation(fields: [supplierId], references: [id])
-  active        Boolean      @default(true)
+  id             String       @id @default(cuid())
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String // Ex: "PLA Branco Polymaker"
+  brand          String?
+  type           FilamentType @default(PLA)
+  color          String? // Nome da cor
+  colorHex       String? // Ex: "#FFFFFF"
+  qrCode         String?      @unique // Para scanner
+  purchasedGrams Float // Gramas compradas originalmente
+  currentGrams   Float // Saldo atual
+  costPerKg      Float // R$/kg
+  lowStockAlert  Float        @default(200) // Alerta em gramas
+  rating         Int? // 1-5
+  ratingNote     String?
+  supplierId     String?
+  supplier       Supplier?    @relation(fields: [supplierId], references: [id])
+  active         Boolean      @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  quotes     Quote[]
-  printLogs  PrintLog[]
+  quotes    Quote[]
+  printLogs PrintLog[]
 }
 
 model Supplier {
-  id       String  @id @default(cuid())
-  userId   String
-  name     String
-  website  String?
-  notes    String?
+  id      String  @id @default(cuid())
+  userId  String
+  name    String
+  website String?
+  notes   String?
 
   filaments Filament[]
 
@@ -519,21 +509,21 @@ model Supplier {
 // ─────────────────────────────────────────────────────────────
 
 model PieceTemplate {
-  id            String   @id @default(cuid())
+  id            String        @id @default(cuid())
   userId        String
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   name          String
   description   String?
   photoUrl      String?
   filamentGrams Float
   printHours    Float
-  printingNotes String?  @db.Text // Dicas técnicas de impressão
+  printingNotes String?       @db.Text // Dicas técnicas de impressão
   printerId     String?
   filamentType  FilamentType?
 
   // Métricas
-  quoteCount    Int      @default(0)
-  approvedCount Int      @default(0)
+  quoteCount    Int @default(0)
+  approvedCount Int @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -544,32 +534,48 @@ model PieceTemplate {
 // ─────────────────────────────────────────────────────────────
 
 model Expense {
-  id             String          @id @default(cuid())
+  id             String   @id @default(cuid())
   userId         String
-  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  category       ExpenseCategory
-  customCategory String?         // Label personalizado quando category = OTHER
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category       String // chave da categoria (padrão ou customizada via ExpenseCategoryConfig)
+  customCategory String? // Label personalizado quando category = OTHER (legado)
   description    String
   amount         Float
   date           DateTime
   receiptUrl     String?
   notes          String?
+  isRecurring    Boolean  @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
+model ExpenseCategoryConfig {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  key    String // identificador estável usado em Expense.category
+  label  String
+  color  String // hex
+  order  Int    @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, key])
+}
+
 model Revenue {
-  id              String     @id @default(cuid())
-  userId          String
-  user            User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  cardId          String?
-  description     String
-  grossAmount     Float      // Valor cobrado do cliente
-  productionCost  Float      // Custo de produção (do orçamento)
-  netProfit       Float      // Lucro líquido
-  date            DateTime
-  notes           String?
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cardId         String?
+  description    String
+  grossAmount    Float // Valor cobrado do cliente
+  productionCost Float // Custo de produção (do orçamento)
+  netProfit      Float // Lucro líquido
+  date           DateTime
+  notes          String?
 
   createdAt DateTime @default(now())
 }
@@ -579,15 +585,15 @@ model Revenue {
 // ─────────────────────────────────────────────────────────────
 
 model WhatsappMessage {
-  id        String     @id @default(cuid())
-  cardId    String?
-  card      KanbanCard? @relation(fields: [cardId], references: [id])
-  to        String     // Número do destinatário
-  message   String     @db.Text
-  sent      Boolean    @default(false)
-  sentAt    DateTime?
-  error     String?
-  template  String?    // Nome do template usado
+  id       String      @id @default(cuid())
+  cardId   String?
+  card     KanbanCard? @relation(fields: [cardId], references: [id])
+  to       String // Número do destinatário
+  message  String      @db.Text
+  sent     Boolean     @default(false)
+  sentAt   DateTime?
+  error    String?
+  template String? // Nome do template usado
 
   createdAt DateTime @default(now())
 }
@@ -597,42 +603,42 @@ model WhatsappMessage {
 // ─────────────────────────────────────────────────────────────
 
 model PortfolioItem {
-  id          String  @id @default(cuid())
+  id          String   @id @default(cuid())
   userId      String
   title       String
-  description String? @db.Text
+  description String?  @db.Text
   photoUrls   String[]
   category    String?
-  featured    Boolean @default(false)
-  order       Int     @default(0)
-  visible     Boolean @default(true)
+  featured    Boolean  @default(false)
+  order       Int      @default(0)
+  visible     Boolean  @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 model Testimonial {
-  id        String  @id @default(cuid())
-  userId    String
-  clientId  String?
+  id         String  @id @default(cuid())
+  userId     String
+  clientId   String?
   clientName String
-  rating    Int     // 1-5
-  comment   String? @db.Text
-  approved  Boolean @default(false)
-  visible   Boolean @default(true)
+  rating     Int // 1-5
+  comment    String? @db.Text
+  approved   Boolean @default(false)
+  visible    Boolean @default(true)
 
   createdAt DateTime @default(now())
 }
 
 model PortfolioLead {
-  id        String   @id @default(cuid())
-  userId    String
-  name      String
-  whatsapp  String?
-  email     String?
-  message   String?  @db.Text
-  source    String?  // URL da peça que chamou atenção
-  read      Boolean  @default(false)
+  id       String  @id @default(cuid())
+  userId   String
+  name     String
+  whatsapp String?
+  email    String?
+  message  String? @db.Text
+  source   String? // URL da peça que chamou atenção
+  read     Boolean @default(false)
 
   createdAt DateTime @default(now())
 }

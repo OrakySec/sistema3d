@@ -2,9 +2,10 @@
 
 import { useState, useMemo, useTransition } from "react";
 import {
-  DollarSign, TrendingUp, TrendingDown, Wallet,
+  DollarSign, TrendingUp, Wallet,
   Plus, ArrowUpRight, ArrowDownRight,
-  Receipt, Pencil, Trash2, ShoppingBag,
+  Receipt, Pencil, Trash2, ShoppingBag, Repeat,
+  Settings, Check, X,
 } from "lucide-react";
 import { useForm, type Resolver } from "react-hook-form";
 import { z } from "zod";
@@ -15,31 +16,23 @@ import { ProfitAreaChart }   from "@/components/financeiro/ProfitAreaChart";
 import { CrudDialog, FormField, DialogActions, inputCls, selectCls } from "@/components/shared/CrudDialog";
 import { createExpense, updateExpense, deleteExpense } from "@/lib/actions/expenses";
 import { createRevenue, deleteRevenue } from "@/lib/actions/revenues";
+import { createCategory, updateCategory, deleteCategory } from "@/lib/actions/expense-categories";
+import { CATEGORY_COLOR_PALETTE } from "@/lib/expense-categories";
 
-// ─── Enums ───────────────────────────────────────────────────
+// ─── Categorias ──────────────────────────────────────────────
 
-const EXPENSE_CATEGORIES = [
-  { value: "FILAMENT",       label: "Filamento",         color: "#F97316" },
-  { value: "PRINTER_PARTS",  label: "Peças Impressora",  color: "#3B82F6" },
-  { value: "ENERGY",         label: "Energia",           color: "#EAB308" },
-  { value: "MARKETING",      label: "Marketing",         color: "#A855F7" },
-  { value: "TOOLS",          label: "Ferramentas",       color: "#14B8A6" },
-  { value: "PACKAGING",      label: "Embalagem",         color: "#F43F5E" },
-  { value: "SHIPPING",       label: "Frete",             color: "#6366F1" },
-  { value: "OTHER",          label: "Outros",            color: "#6B7280" },
-] as const;
-
-type ExpenseCategory = typeof EXPENSE_CATEGORIES[number]["value"];
+interface CategoryDef { key: string; label: string; color: string; order: number; isDefault: boolean; id?: string }
 
 // ─── Schema ───────────────────────────────────────────────────
 
 const expenseSchema = z.object({
   description:    z.string().min(2, "Descrição obrigatória"),
-  category:       z.enum(EXPENSE_CATEGORIES.map((c) => c.value) as [ExpenseCategory, ...ExpenseCategory[]]),
+  category:       z.string().min(1, "Categoria obrigatória"),
   customCategory: z.string().optional(),
   amount:         z.coerce.number().positive("Valor obrigatório"),
   date:           z.string().min(1, "Data obrigatória"),
   notes:          z.string().optional(),
+  isRecurring:    z.boolean().optional(),
 });
 type ExpenseForm = z.infer<typeof expenseSchema>;
 
@@ -48,11 +41,12 @@ type ExpenseForm = z.infer<typeof expenseSchema>;
 interface Expense {
   id: string;
   description: string;
-  category: ExpenseCategory;
+  category: string;
   customCategory?: string;
   amount: number;
   date: string;
   notes?: string;
+  isRecurring: boolean;
 }
 
 interface Revenue {
@@ -73,17 +67,18 @@ interface FinanceiroClientProps {
   initialExpenses: Expense[];
   monthlyData: MonthlyBucket[];
   profitData: ProfitBucket[];
+  categories: CategoryDef[];
 }
 
 // ─── Modal de despesa ─────────────────────────────────────────
 
-function ExpenseDialog({ expense, onClose }: { expense?: Expense; onClose: () => void }) {
+function ExpenseDialog({ expense, categories, onClose }: { expense?: Expense; categories: CategoryDef[]; onClose: () => void }) {
   const [pending, startTransition] = useTransition();
   const { register, handleSubmit, watch, formState: { errors } } = useForm<ExpenseForm>({
     resolver: zodResolver(expenseSchema) as Resolver<ExpenseForm>,
     defaultValues: expense
       ? { ...expense, date: expense.date.split("T")[0] }
-      : { date: new Date().toISOString().split("T")[0], category: "FILAMENT" },
+      : { date: new Date().toISOString().split("T")[0], category: categories[0]?.key ?? "OTHER", isRecurring: false },
   });
 
   const selectedCategory = watch("category");
@@ -113,8 +108,8 @@ function ExpenseDialog({ expense, onClose }: { expense?: Expense; onClose: () =>
 
           <FormField label="Categoria" error={errors.category?.message}>
             <select {...register("category")} className={selectCls}>
-              {EXPENSE_CATEGORIES.map((c) => (
-                <option key={c.value} value={c.value}>{c.label}</option>
+              {categories.map((c) => (
+                <option key={c.key} value={c.key}>{c.label}</option>
               ))}
             </select>
           </FormField>
@@ -141,8 +136,18 @@ function ExpenseDialog({ expense, onClose }: { expense?: Expense; onClose: () =>
             </FormField>
           )}
 
-          <FormField label="Data" error={errors.date?.message} className={selectedCategory === "OTHER" ? "sm:col-span-2" : undefined}>
+          <FormField label="Data" error={errors.date?.message}>
             <input {...register("date")} type="date" className={inputCls} />
+          </FormField>
+
+          <FormField label="Recorrência">
+            <label className="flex h-[42px] items-center gap-2 rounded-lg border border-border bg-background px-3 text-sm text-text-primary cursor-pointer">
+              <input {...register("isRecurring")} type="checkbox" className="h-4 w-4 rounded border-border accent-primary" />
+              <span className="flex items-center gap-1.5">
+                <Repeat className="h-3.5 w-3.5 text-text-muted" />
+                Despesa recorrente
+              </span>
+            </label>
           </FormField>
 
           <FormField label="Observações" className="sm:col-span-2">
@@ -248,8 +253,8 @@ function RevenueDialog({ onClose }: { onClose: () => void }) {
 
 // ─── Componentes auxiliares ───────────────────────────────────
 
-function MetricCard({ title, value, sub, icon: Icon, color }: {
-  title: string; value: string; sub: string; icon: React.ElementType; color: string;
+function MetricCard({ title, value, sub, icon: Icon, color, trend }: {
+  title: string; value: string; sub: string; icon: React.ElementType; color: string; trend?: number | null;
 }) {
   return (
     <div className="rounded-xl border border-border bg-surface p-5">
@@ -260,7 +265,14 @@ function MetricCard({ title, value, sub, icon: Icon, color }: {
         </div>
       </div>
       <p className="font-display text-2xl font-bold text-text-primary">{value}</p>
-      <p className="mt-0.5 text-xs text-text-muted">{sub}</p>
+      <div className="mt-0.5 flex items-center gap-1.5">
+        <p className="text-xs text-text-muted">{sub}</p>
+        {trend !== null && trend !== undefined && Number.isFinite(trend) && (
+          <span className={`text-xs font-semibold ${trend >= 0 ? "text-success" : "text-error"}`}>
+            {trend >= 0 ? "↑" : "↓"} {Math.abs(trend)}% vs mês anterior
+          </span>
+        )}
+      </div>
     </div>
   );
 }
@@ -285,16 +297,155 @@ function EmptyState({ message }: { message: string }) {
   );
 }
 
+// ─── Configurações de categorias ──────────────────────────────
+
+function CategoryDialog({ category, onClose }: { category?: CategoryDef; onClose: () => void }) {
+  const [pending, startTransition] = useTransition();
+  const [label, setLabel] = useState(category?.label ?? "");
+  const [color, setColor] = useState(category?.color ?? CATEGORY_COLOR_PALETTE[0]);
+  const [error, setError] = useState<string | null>(null);
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    const fd = new FormData();
+    fd.append("label", label);
+    fd.append("color", color);
+    startTransition(async () => {
+      const result = category ? await updateCategory(category.key, fd) : await createCategory(fd);
+      if (result?.error) { setError(result.error); return; }
+      onClose();
+    });
+  }
+
+  return (
+    <CrudDialog
+      title={category ? "Editar Categoria" : "Nova Categoria"}
+      subtitle="Personalize o nome e a cor usada nos gráficos"
+      icon={Settings}
+      onClose={onClose}
+    >
+      <form onSubmit={handleSubmit}>
+        <div className="grid gap-4">
+          <FormField label="Nome">
+            <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Ex: Aluguel" className={inputCls} />
+          </FormField>
+
+          <FormField label="Cor">
+            <div className="flex flex-wrap gap-2">
+              {CATEGORY_COLOR_PALETTE.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setColor(c)}
+                  className="flex h-8 w-8 items-center justify-center rounded-full border-2 transition-transform hover:scale-110"
+                  style={{ backgroundColor: c, borderColor: color === c ? "var(--color-text-primary)" : "transparent" }}
+                >
+                  {color === c && <Check className="h-4 w-4 text-white" />}
+                </button>
+              ))}
+              <label className="relative flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-dashed border-border text-text-muted">
+                <input
+                  type="color"
+                  value={color}
+                  onChange={(e) => setColor(e.target.value)}
+                  className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                />
+                <Plus className="h-3.5 w-3.5" />
+              </label>
+            </div>
+          </FormField>
+
+          {error && <p className="text-xs text-error">{error}</p>}
+        </div>
+        <DialogActions onClose={onClose} loading={pending} submitLabel="Salvar" />
+      </form>
+    </CrudDialog>
+  );
+}
+
+function CategoriesSettings({ categories }: { categories: CategoryDef[] }) {
+  const [, startTransition] = useTransition();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editing, setEditing] = useState<CategoryDef | undefined>();
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  function openEdit(c: CategoryDef) { setEditing(c); setDialogOpen(true); }
+  function openNew()                { setEditing(undefined); setDialogOpen(true); }
+  function closeDialog()            { setDialogOpen(false); setEditing(undefined); }
+
+  function handleDelete(c: CategoryDef) {
+    if (!confirm(`Excluir a categoria "${c.label}"?`)) return;
+    setDeleteError(null);
+    startTransition(async () => {
+      const result = await deleteCategory(c.key);
+      if (result?.error) setDeleteError(result.error);
+    });
+  }
+
+  return (
+    <div className="rounded-xl border border-border bg-surface">
+      <div className="flex items-center justify-between border-b border-border px-5 py-4">
+        <div>
+          <h2 className="font-display text-sm font-semibold text-text-primary">Categorias de Despesa</h2>
+          <p className="text-xs text-text-muted mt-0.5">Gerencie nomes e cores usadas nos gráficos e filtros</p>
+        </div>
+        <button
+          onClick={openNew}
+          className="flex items-center gap-1.5 rounded-lg gradient-primary px-3 py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          Nova categoria
+        </button>
+      </div>
+
+      {deleteError && (
+        <div className="mx-5 mt-4 flex items-center gap-2 rounded-lg border border-error/30 bg-error-subtle px-3 py-2 text-xs text-error">
+          <X className="h-3.5 w-3.5 shrink-0" />
+          {deleteError}
+        </div>
+      )}
+
+      <div className="divide-y divide-border">
+        {categories.map((c) => (
+          <div key={c.key} className="flex items-center justify-between gap-3 px-5 py-3.5">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="h-4 w-4 shrink-0 rounded-full" style={{ backgroundColor: c.color }} />
+              <p className="text-sm font-medium text-text-primary truncate">{c.label}</p>
+              {c.isDefault && (
+                <span className="shrink-0 rounded-full border border-border px-2 py-0.5 text-[10px] font-medium text-text-muted">padrão</span>
+              )}
+            </div>
+            <div className="flex shrink-0 gap-1">
+              <button onClick={() => openEdit(c)} className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted hover:bg-surface-hover hover:text-primary transition-colors">
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+              {!c.isDefault && (
+                <button onClick={() => handleDelete(c)} className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted hover:bg-error-subtle hover:text-error transition-colors">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {dialogOpen && <CategoryDialog category={editing} onClose={closeDialog} />}
+    </div>
+  );
+}
+
 // ─── Página ───────────────────────────────────────────────────
 
-type TabType = "visao-geral" | "receitas" | "despesas";
+type TabType = "visao-geral" | "receitas" | "despesas" | "configuracoes";
 
-export function FinanceiroClient({ initialRevenues, initialExpenses, monthlyData, profitData }: FinanceiroClientProps) {
+export function FinanceiroClient({ initialRevenues, initialExpenses, monthlyData, profitData, categories }: FinanceiroClientProps) {
   const [tab, setTab]                   = useState<TabType>("visao-geral");
   const [dialogOpen, setDialogOpen]     = useState(false);
   const [revenueDialog, setRevenueDialog] = useState(false);
   const [editing, setEditing]           = useState<Expense | undefined>();
   const [filterCat, setFilterCat]       = useState<string>("ALL");
+  const [onlyRecurring, setOnlyRecurring] = useState(false);
   const [, startTransition]             = useTransition();
 
   const now   = new Date();
@@ -307,26 +458,56 @@ export function FinanceiroClient({ initialRevenues, initialExpenses, monthlyData
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   });
 
+  const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const prevRevenues = initialRevenues.filter((r) => {
+    const d = new Date(r.date);
+    return d.getMonth() === prevMonthDate.getMonth() && d.getFullYear() === prevMonthDate.getFullYear();
+  });
+  const prevExpenses = initialExpenses.filter((e) => {
+    const d = new Date(e.date);
+    return d.getMonth() === prevMonthDate.getMonth() && d.getFullYear() === prevMonthDate.getFullYear();
+  });
+
+  function pctChange(curr: number, prev: number): number | null {
+    if (prev === 0) return null;
+    return Math.round(((curr - prev) / prev) * 100);
+  }
+
   const metrics = useMemo(() => {
     const receita   = monthRevenues.reduce((a, r) => a + r.grossAmount, 0);
     const lucro     = monthRevenues.reduce((a, r) => a + r.netProfit, 0);
     const despTotal = monthExpenses.reduce((a, e) => a + e.amount, 0);
     const margem    = receita > 0 ? Math.round((lucro / receita) * 100) : 0;
-    return { receita, lucro, despTotal, margem };
-  }, [monthRevenues, monthExpenses]);
+
+    const prevReceita   = prevRevenues.reduce((a, r) => a + r.grossAmount, 0);
+    const prevLucro     = prevRevenues.reduce((a, r) => a + r.netProfit, 0);
+    const prevDespTotal = prevExpenses.reduce((a, e) => a + e.amount, 0);
+
+    return {
+      receita, lucro, despTotal, margem,
+      receitaTrend: pctChange(receita, prevReceita),
+      lucroTrend:   pctChange(lucro, prevLucro),
+      despTrend:    pctChange(despTotal, prevDespTotal),
+    };
+  }, [monthRevenues, monthExpenses, prevRevenues, prevExpenses]);
+
+  const catColor = (key: string) => categories.find((c) => c.key === key)?.color ?? "#6B7280";
+  const catLabel = (key: string, custom?: string) =>
+    key === "OTHER" && custom ? custom : (categories.find((c) => c.key === key)?.label ?? key);
 
   const pieData = useMemo(() => {
     const map = new Map<string, number>();
     monthExpenses.forEach((e) => map.set(e.category, (map.get(e.category) ?? 0) + e.amount));
-    return EXPENSE_CATEGORIES
-      .filter((c) => map.has(c.value))
-      .map((c) => ({ name: c.label, value: map.get(c.value)!, color: c.color }));
-  }, [monthExpenses]);
+    return categories
+      .filter((c) => map.has(c.key))
+      .map((c) => ({ name: c.label, value: map.get(c.key)!, color: c.color }));
+  }, [monthExpenses, categories]);
 
-  const filteredExpenses = useMemo(
-    () => filterCat === "ALL" ? initialExpenses : initialExpenses.filter((e) => e.category === filterCat),
-    [initialExpenses, filterCat]
-  );
+  const filteredExpenses = useMemo(() => {
+    let list = filterCat === "ALL" ? initialExpenses : initialExpenses.filter((e) => e.category === filterCat);
+    if (onlyRecurring) list = list.filter((e) => e.isRecurring);
+    return list;
+  }, [initialExpenses, filterCat, onlyRecurring]);
 
   function handleDelete(id: string) {
     if (!confirm("Remover esta despesa?")) return;
@@ -341,10 +522,6 @@ export function FinanceiroClient({ initialRevenues, initialExpenses, monthlyData
   function openEdit(e: Expense) { setEditing(e); setDialogOpen(true); }
   function openNew()             { setEditing(undefined); setDialogOpen(true); }
   function closeDialog()         { setDialogOpen(false); setEditing(undefined); }
-
-  const catColor = (cat: ExpenseCategory) => EXPENSE_CATEGORIES.find((c) => c.value === cat)?.color ?? "#6B7280";
-  const catLabel = (cat: ExpenseCategory, custom?: string) =>
-    cat === "OTHER" && custom ? custom : (EXPENSE_CATEGORIES.find((c) => c.value === cat)?.label ?? cat);
 
   return (
     <>
@@ -376,8 +553,8 @@ export function FinanceiroClient({ initialRevenues, initialExpenses, monthlyData
 
       {/* Tabs */}
       <div className="mb-6 flex gap-1 rounded-xl border border-border bg-surface p-1 w-fit">
-        {(["visao-geral", "receitas", "despesas"] as TabType[]).map((t) => {
-          const labels = { "visao-geral": "Visão Geral", receitas: "Receitas", despesas: "Despesas" };
+        {(["visao-geral", "receitas", "despesas", "configuracoes"] as TabType[]).map((t) => {
+          const labels = { "visao-geral": "Visão Geral", receitas: "Receitas", despesas: "Despesas", configuracoes: "Configurações" };
           return (
             <button
               key={t}
@@ -400,16 +577,19 @@ export function FinanceiroClient({ initialRevenues, initialExpenses, monthlyData
               title="Receita Bruta" sub="este mês"
               value={metrics.receita.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
               icon={DollarSign} color="text-success bg-success-subtle"
+              trend={metrics.receitaTrend}
             />
             <MetricCard
               title="Despesas Totais" sub="este mês"
               value={metrics.despTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
               icon={ArrowDownRight} color="text-error bg-error-subtle"
+              trend={metrics.despTrend === null ? null : -metrics.despTrend}
             />
             <MetricCard
               title="Lucro Líquido" sub="após custos de produção"
               value={metrics.lucro.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
               icon={TrendingUp} color="text-primary bg-primary-subtle"
+              trend={metrics.lucroTrend}
             />
             <MetricCard
               title="Margem de Lucro" sub="sobre a receita bruta"
@@ -522,7 +702,7 @@ export function FinanceiroClient({ initialRevenues, initialExpenses, monthlyData
       {/* ─── Despesas ──────────────────────────────────────── */}
       {tab === "despesas" && (
         <>
-          <div className="mb-4 flex flex-wrap gap-2">
+          <div className="mb-4 flex flex-wrap items-center gap-2">
             <button
               onClick={() => setFilterCat("ALL")}
               className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
@@ -531,17 +711,26 @@ export function FinanceiroClient({ initialRevenues, initialExpenses, monthlyData
             >
               Todas
             </button>
-            {EXPENSE_CATEGORIES.map((c) => (
+            {categories.map((c) => (
               <button
-                key={c.value}
-                onClick={() => setFilterCat(c.value)}
+                key={c.key}
+                onClick={() => setFilterCat(c.key)}
                 className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
-                  filterCat === c.value ? "border-primary bg-primary-subtle text-primary" : "border-border bg-surface text-text-secondary hover:border-primary/50"
+                  filterCat === c.key ? "border-primary bg-primary-subtle text-primary" : "border-border bg-surface text-text-secondary hover:border-primary/50"
                 }`}
               >
                 {c.label}
               </button>
             ))}
+            <button
+              onClick={() => setOnlyRecurring((v) => !v)}
+              className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                onlyRecurring ? "border-primary bg-primary-subtle text-primary" : "border-border bg-surface text-text-secondary hover:border-primary/50"
+              }`}
+            >
+              <Repeat className="h-3 w-3" />
+              Recorrentes
+            </button>
           </div>
 
           <div className="rounded-xl border border-border bg-surface overflow-hidden">
@@ -561,7 +750,10 @@ export function FinanceiroClient({ initialRevenues, initialExpenses, monthlyData
                       <ArrowDownRight className="h-4 w-4" style={{ color: catColor(e.category) }} />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-text-primary truncate">{e.description}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-sm font-medium text-text-primary truncate">{e.description}</p>
+                        {e.isRecurring && <Repeat className="h-3 w-3 shrink-0 text-primary" />}
+                      </div>
                       {e.notes && <p className="text-xs text-text-muted truncate">{e.notes}</p>}
                     </div>
                   </div>
@@ -597,7 +789,7 @@ export function FinanceiroClient({ initialRevenues, initialExpenses, monthlyData
 
             <div className="flex items-center justify-between border-t border-border px-5 py-4">
               <span className="text-sm font-medium text-text-secondary">
-                Total {filterCat !== "ALL" && `(${catLabel(filterCat as ExpenseCategory)})`}
+                Total {filterCat !== "ALL" && `(${catLabel(filterCat)})`}
               </span>
 
               <span className="font-display text-lg font-bold text-error">
@@ -608,7 +800,10 @@ export function FinanceiroClient({ initialRevenues, initialExpenses, monthlyData
         </>
       )}
 
-      {dialogOpen && <ExpenseDialog expense={editing} onClose={closeDialog} />}
+      {/* ─── Configurações ────────────────────────────────── */}
+      {tab === "configuracoes" && <CategoriesSettings categories={categories} />}
+
+      {dialogOpen && <ExpenseDialog expense={editing} categories={categories} onClose={closeDialog} />}
       {revenueDialog && <RevenueDialog onClose={() => setRevenueDialog(false)} />}
     </>
   );

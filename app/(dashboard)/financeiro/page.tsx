@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { FinanceiroClient } from "./FinanceiroClient";
+import { getUserCategories } from "@/lib/actions/expense-categories";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Financeiro" };
@@ -18,9 +19,10 @@ export default async function FinanceiroPage() {
   sixMonthsAgo.setDate(1);
   sixMonthsAgo.setHours(0, 0, 0, 0);
 
-  const [revenues, expenses] = await Promise.all([
+  const [revenues, expenses, categories] = await Promise.all([
     prisma.revenue.findMany({ where: { userId }, orderBy: { date: "desc" } }),
     prisma.expense.findMany({ where: { userId }, orderBy: { date: "desc" } }),
+    getUserCategories(userId),
   ]);
 
   // ── Agregação mensal (últimos 6 meses) ──────────────────────
@@ -62,6 +64,7 @@ export default async function FinanceiroPage() {
       initialExpenses={expenses.map((e) => ({ ...e, date: e.date.toISOString(), notes: e.notes ?? undefined, customCategory: e.customCategory ?? undefined }))}
       monthlyData={buckets}
       profitData={profitData}
+      categories={categories}
     />
   );
 }

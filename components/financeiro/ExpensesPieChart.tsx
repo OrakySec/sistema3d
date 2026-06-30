@@ -17,7 +17,7 @@ function CustomTooltip({ active, payload }: any) {
       </div>
       <p className="text-text-muted">
         {d.value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-        <span className="ml-1 text-text-muted">({d.payload.percent}%)</span>
+        <span className="ml-1 text-text-muted">({d.payload.pct}%)</span>
       </p>
     </div>
   );
@@ -38,7 +38,7 @@ function CustomLabel({ cx, cy, midAngle, innerRadius, outerRadius, percent }: an
 
 export function ExpensesPieChart({ data }: ExpensesPieChartProps) {
   const total = data.reduce((acc, d) => acc + d.value, 0);
-  const withPercent = data.map((d) => ({ ...d, percent: Math.round((d.value / total) * 100) }));
+  const withPercent = data.map((d) => ({ ...d, pct: total > 0 ? Math.round((d.value / total) * 100) : 0 }));
 
   return (
     <ResponsiveContainer width="100%" height={260}>
