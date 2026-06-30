@@ -9,6 +9,7 @@ import {
   useSensor,
   useSensors,
   closestCorners,
+  useDroppable,
   type DragStartEvent,
   type DragEndEvent,
 } from "@dnd-kit/core";
@@ -405,9 +406,10 @@ function Column({
   onDelete: (cardId: string) => void;
 }) {
   const config = COLUMNS[colId];
+  const { setNodeRef, isOver } = useDroppable({ id: colId });
 
   return (
-    <div className={cn("flex w-72 shrink-0 flex-col rounded-xl border bg-surface/50", config.colorClass)}>
+    <div className={cn("flex w-72 shrink-0 flex-col rounded-xl border bg-surface/50 transition-colors", config.colorClass, isOver && "bg-surface")}>
       <div className="flex items-center gap-2 px-4 py-3">
         <span className="text-base leading-none">{config.emoji}</span>
         <span className="text-sm font-semibold text-text-primary">{config.label}</span>
@@ -416,7 +418,11 @@ function Column({
         </span>
       </div>
 
-      <div className="flex flex-col gap-2.5 overflow-y-auto px-3 pb-3" style={{ maxHeight: "calc(100vh - 220px)" }}>
+      <div
+        ref={setNodeRef}
+        className="flex flex-col gap-2.5 overflow-y-auto px-3 pb-3 flex-1"
+        style={{ minHeight: "80px", maxHeight: "calc(100vh - 220px)" }}
+      >
         <SortableContext items={cards.map((c) => c.id)} strategy={verticalListSortingStrategy}>
           {cards.map((card) => (
             <SortableCard
@@ -430,7 +436,10 @@ function Column({
         </SortableContext>
 
         {cards.length === 0 && (
-          <div className="flex h-20 items-center justify-center rounded-lg border border-dashed border-border">
+          <div className={cn(
+            "flex h-20 items-center justify-center rounded-lg border border-dashed transition-colors",
+            isOver ? "border-primary bg-primary/5" : "border-border"
+          )}>
             <p className="text-xs text-text-muted">Arraste um card aqui</p>
           </div>
         )}
@@ -482,15 +491,19 @@ export function KanbanBoard({ initialCards }: { initialCards: Card[] }) {
       const activeC = prev.find((c) => c.id === activeId);
       if (!activeC) return prev;
 
+      // Solto diretamente sobre uma coluna (useDroppable)
       if (COL_ORDER.includes(overId as KanbanCol)) {
         newColumn = overId as KanbanCol;
+        if (activeC.column === newColumn) return prev;
         return prev.map((c) => (c.id === activeId ? { ...c, column: newColumn! } : c));
       }
 
+      // Solto sobre outro card
       const overC = prev.find((c) => c.id === overId);
       if (!overC) return prev;
 
       if (activeC.column === overC.column) {
+        // Reordenação dentro da mesma coluna
         const colCards = prev.filter((c) => c.column === activeC.column);
         const others   = prev.filter((c) => c.column !== activeC.column);
         const oldIdx   = colCards.findIndex((c) => c.id === activeId);
@@ -498,6 +511,7 @@ export function KanbanBoard({ initialCards }: { initialCards: Card[] }) {
         return [...others, ...arrayMove(colCards, oldIdx, newIdx)];
       }
 
+      // Mover para a coluna do card alvo
       newColumn = overC.column;
       return prev.map((c) => (c.id === activeId ? { ...c, column: newColumn! } : c));
     });
