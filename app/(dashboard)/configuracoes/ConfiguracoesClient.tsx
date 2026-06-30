@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import {
   User, DollarSign, FileText, MessageCircle,
   Bell, Shield, Save, Loader2, Zap,
-  ExternalLink, Copy, CheckCircle2, Plug,
+  Copy, CheckCircle2, Plug, ExternalLink,
 } from "lucide-react";
 import { SettingToggle } from "@/components/shared/SettingToggle";
 import { InfoTip }        from "@/components/shared/InfoTip";
@@ -479,20 +479,9 @@ export function ConfiguracoesClient({ initialUser, initialSettings, infinitypayH
                 </p>
               </div>
               {infinitypayHandle && (
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="flex items-center gap-1.5 rounded-full border border-success/30 bg-success-subtle px-2.5 py-0.5 text-xs font-medium text-success">
-                    <CheckCircle2 className="h-3 w-3" /> Configurado
-                  </span>
-                  <a
-                    href={`https://app.infinitepay.io/${infinitypayHandle}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:border-primary hover:text-primary transition-colors"
-                  >
-                    <ExternalLink className="h-3.5 w-3.5" />
-                    Ver perfil
-                  </a>
-                </div>
+                <span className="flex items-center gap-1.5 rounded-full border border-success/30 bg-success-subtle px-2.5 py-0.5 text-xs font-medium text-success shrink-0">
+                  <CheckCircle2 className="h-3 w-3" /> Configurado
+                </span>
               )}
             </div>
 
