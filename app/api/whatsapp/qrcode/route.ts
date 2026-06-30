@@ -42,7 +42,7 @@ export async function GET() {
       }
 
       const data = await res.json();
-      console.log(`[qrcode] attempt ${attempt + 1} response keys:`, Object.keys(data));
+      console.log(`[qrcode] attempt ${attempt + 1} full response:`, JSON.stringify(data).slice(0, 500));
 
       const qrcode = data?.base64 ?? data?.qrcode?.base64 ?? data?.code ?? null;
       const state  = data?.instance?.state ?? data?.state ?? null;
@@ -59,5 +59,5 @@ export async function GET() {
     }
   }
 
-  return NextResponse.json({ error: "QR Code não disponível após 3 tentativas", qrcode: null }, { status: 200 });
+  return NextResponse.json({ error: "QR Code não disponível após 3 tentativas. Verifique os logs do servidor.", qrcode: null, debug: "Veja os logs do container Next.js com: docker logs sistema3d_app --tail=30" }, { status: 200 });
 }

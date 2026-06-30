@@ -79,7 +79,7 @@ export async function POST() {
     });
 
     const createData = await createRes.json();
-    console.log("[whatsapp/instance POST] create response keys:", Object.keys(createData));
+    console.log("[whatsapp/instance POST] create response:", JSON.stringify(createData).slice(0, 500));
 
     await prisma.user.update({
       where: { id: session.user.id },
@@ -99,7 +99,7 @@ export async function POST() {
             headers: evoHeaders(),
           });
           const qrData = await qrRes.json();
-          console.log(`[whatsapp/instance POST] connect attempt ${i + 1} keys:`, Object.keys(qrData));
+          console.log(`[whatsapp/instance POST] connect attempt ${i + 1}:`, JSON.stringify(qrData).slice(0, 500));
           qrcode = qrData?.base64 ?? qrData?.qrcode?.base64 ?? null;
           if (qrcode) break;
         } catch {}
