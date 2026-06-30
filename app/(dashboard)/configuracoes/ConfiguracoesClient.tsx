@@ -53,6 +53,7 @@ interface Props {
   initialSettings: SettingsData;
   hasInfinityPayKey: boolean;
   infinitypayKeyMasked?: string;
+  whatsappConnected: boolean;
 }
 
 // ─── Componentes auxiliares ───────────────────────────────────
@@ -108,7 +109,7 @@ function InputRow({ label, tip, children }: { label: string; tip?: string; child
 
 // ─── Página ───────────────────────────────────────────────────
 
-export function ConfiguracoesClient({ initialUser, initialSettings, hasInfinityPayKey, infinitypayKeyMasked }: Props) {
+export function ConfiguracoesClient({ initialUser, initialSettings, hasInfinityPayKey, infinitypayKeyMasked, whatsappConnected }: Props) {
   const [tab, setTab]             = useState<TabId>("perfil");
   const [u, setU]                 = useState<UserData>(initialUser);
   const [s, setS]                 = useState<SettingsData>(initialSettings);
@@ -350,6 +351,8 @@ export function ConfiguracoesClient({ initialUser, initialSettings, hasInfinityP
               info="Quando desativado, nenhuma mensagem é enviada automaticamente."
               enabled={s.whatsappAutoEnabled}
               onChange={(v) => set("whatsappAutoEnabled", v)}
+              disabled={!whatsappConnected}
+              disabledReason="⚠ Conecte o WhatsApp primeiro para ativar as automações."
             />
 
             <SettingToggle
