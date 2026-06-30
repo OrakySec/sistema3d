@@ -88,7 +88,7 @@ export async function createQuote(formData: FormData) {
       label:       v.label,
       description: v.description,
       totalPrice:  vb.totalPrice,
-      details:     vb as unknown as Record<string, unknown>,
+      details:     JSON.parse(JSON.stringify(vb)),
       order:       i,
     };
   });
