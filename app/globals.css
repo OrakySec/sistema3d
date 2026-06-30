@@ -11,9 +11,9 @@
 
 @theme inline {
   /* ── Fontes ─────────────────────────────────────────────── */
-  --font-sans: var(--font-sans);
-  --font-display: var(--font-outfit);
-  --font-mono:  var(--font-jetbrains);
+  --font-sans:    var(--font-jakarta), "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-display: var(--font-grotesk), "Space Grotesk", system-ui, sans-serif;
+  --font-mono:    ui-monospace, "Geist Mono", "Fira Code", monospace;
 
   /* ── Cores Base ─────────────────────────────────────────── */
   --color-background:      #09090B;
@@ -111,7 +111,10 @@ html {
 body {
   background-color: var(--color-background);
   color: var(--color-text-primary);
-  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.6;
+  letter-spacing: -0.01em;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   min-height: 100dvh;
@@ -137,6 +140,12 @@ body {
 ::selection {
   background: var(--color-primary-subtle);
   color: var(--color-primary);
+}
+
+/* ── Tipografia display (Space Grotesk) ─────────────────────── */
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.03em;
 }
 
 /* ── Focus outline ──────────────────────────────────────────── */

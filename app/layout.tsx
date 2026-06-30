@@ -1,20 +1,22 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Outfit } from "next/font/google";
+import { Plus_Jakarta_Sans, Space_Grotesk } from "next/font/google";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SessionProvider } from "@/components/providers/SessionProvider";
 import "./globals.css";
 
 // ── Fontes ─────────────────────────────────────────────────
-const inter = Inter({
-  variable: "--font-inter",
+const jakarta = Plus_Jakarta_Sans({
+  variable: "--font-jakarta",
   subsets: ["latin"],
   display: "swap",
+  weight: ["300", "400", "500", "600", "700", "800"],
 });
 
-const outfit = Outfit({
-  variable: "--font-outfit",
+const grotesk = Space_Grotesk({
+  variable: "--font-grotesk",
   subsets: ["latin"],
   display: "swap",
+  weight: ["300", "400", "500", "600", "700"],
 });
 
 // ── Viewport ────────────────────────────────────────────────
@@ -45,7 +47,7 @@ export default function RootLayout({
   return (
     <html
       lang="pt-BR"
-      className={`${inter.variable} ${outfit.variable} h-full`}
+      className={`${jakarta.variable} ${grotesk.variable} h-full`}
       suppressHydrationWarning
     >
       <body className="min-h-full bg-background text-text-primary antialiased">
