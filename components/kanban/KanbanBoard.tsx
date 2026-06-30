@@ -24,6 +24,8 @@ import {
   Play, Pause, RotateCcw, XCircle, CheckCircle2,
   Clock, GripVertical, User, Printer, MoreHorizontal,
   Pencil, Trash2, X, Tag,
+  Hourglass, CheckCircle, PrinterIcon, Paintbrush,
+  Package, Truck, Ban,
 } from "lucide-react";
 import { PrintControlDialog } from "./PrintControlDialog";
 import { cn } from "@/lib/utils";
@@ -63,16 +65,16 @@ export interface Card {
 
 // ─── Configuração das colunas ────────────────────────────────
 
-interface ColConfig { label: string; emoji: string; colorClass: string }
+interface ColConfig { label: string; icon: React.ElementType; iconClass: string; colorClass: string }
 
 const COLUMNS: Record<KanbanCol, ColConfig> = {
-  WAITING:   { label: "Aguardando",   emoji: "⏳", colorClass: "border-border" },
-  APPROVED:  { label: "Aprovado",     emoji: "✅", colorClass: "border-success/30" },
-  PRINTING:  { label: "Em Produção",  emoji: "🖨️", colorClass: "border-primary/30" },
-  POST_PROD: { label: "Pós-Produção", emoji: "🎨", colorClass: "border-info/30" },
-  READY:     { label: "Pronto",       emoji: "📦", colorClass: "border-warning/30" },
-  DELIVERED: { label: "Entregue",     emoji: "🏁", colorClass: "border-success/20" },
-  CANCELLED: { label: "Cancelado",    emoji: "❌", colorClass: "border-error/20" },
+  WAITING:   { label: "Aguardando",   icon: Hourglass,    iconClass: "text-warning",  colorClass: "border-border" },
+  APPROVED:  { label: "Aprovado",     icon: CheckCircle,  iconClass: "text-success",  colorClass: "border-success/30" },
+  PRINTING:  { label: "Em Produção",  icon: PrinterIcon,  iconClass: "text-primary",  colorClass: "border-primary/30" },
+  POST_PROD: { label: "Pós-Produção", icon: Paintbrush,   iconClass: "text-info",     colorClass: "border-info/30" },
+  READY:     { label: "Pronto",       icon: Package,      iconClass: "text-warning",  colorClass: "border-warning/30" },
+  DELIVERED: { label: "Entregue",     icon: Truck,        iconClass: "text-success",  colorClass: "border-success/20" },
+  CANCELLED: { label: "Cancelado",    icon: Ban,          iconClass: "text-error",    colorClass: "border-error/20" },
 };
 
 const COL_ORDER: KanbanCol[] = [
@@ -411,7 +413,7 @@ function Column({
   return (
     <div className={cn("flex w-72 shrink-0 flex-col rounded-xl border bg-surface/50 transition-colors", config.colorClass, isOver && "bg-surface")}>
       <div className="flex items-center gap-2 px-4 py-3">
-        <span className="text-base leading-none">{config.emoji}</span>
+        <config.icon className={cn("h-4 w-4 shrink-0", config.iconClass)} />
         <span className="text-sm font-semibold text-text-primary">{config.label}</span>
         <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-surface-hover px-1.5 text-xs font-medium text-text-muted">
           {cards.length}

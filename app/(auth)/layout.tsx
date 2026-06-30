@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Zap, BarChart2, Printer, FileText, MessageCircle } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Entrar | 3D Print Manager",
@@ -32,7 +33,7 @@ export default function AuthLayout({
           {/* Logo */}
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-primary shadow-glow">
-              <span className="text-xl">⚡</span>
+              <Zap className="h-5 w-5 text-white" />
             </div>
             <div>
               <p className="font-display text-lg font-bold text-text-primary leading-none">
@@ -63,17 +64,17 @@ export default function AuthLayout({
           {/* Features */}
           <div className="grid grid-cols-2 gap-4">
             {[
-              { icon: "📊", label: "Dashboard financeiro" },
-              { icon: "🖨️", label: "Fila de impressão" },
-              { icon: "📋", label: "Orçamentos inteligentes" },
-              { icon: "💬", label: "WhatsApp automático" },
-            ].map((f) => (
+              { Icon: BarChart2,    label: "Dashboard financeiro" },
+              { Icon: Printer,      label: "Fila de impressão" },
+              { Icon: FileText,     label: "Orçamentos inteligentes" },
+              { Icon: MessageCircle,label: "WhatsApp automático" },
+            ].map(({ Icon, label }) => (
               <div
-                key={f.label}
+                key={label}
                 className="flex items-center gap-2 rounded-lg border border-border bg-surface-hover p-3"
               >
-                <span className="text-lg">{f.icon}</span>
-                <span className="text-xs font-medium text-text-secondary">{f.label}</span>
+                <Icon className="h-4 w-4 text-primary shrink-0" />
+                <span className="text-xs font-medium text-text-secondary">{label}</span>
               </div>
             ))}
           </div>

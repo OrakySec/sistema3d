@@ -5,6 +5,8 @@ import { StatCard } from "@/components/shared/StatCard";
 import Link from "next/link";
 import {
   DollarSign, FileText, Layers, Package,
+  FilePlus, Printer, UserPlus, Receipt,
+  Hand,
 } from "lucide-react";
 import type { Metadata } from "next";
 
@@ -54,8 +56,9 @@ export default async function DashboardPage() {
   return (
     <>
       <div className="mb-8">
-        <h1 className="font-display text-2xl font-bold text-text-primary">
-          Olá, {firstName}! 👋
+        <h1 className="font-display text-2xl font-bold text-text-primary flex items-center gap-2">
+          Olá, {firstName}!
+          <Hand className="h-6 w-6 text-warning" />
         </h1>
         <p className="mt-1 text-sm text-text-secondary">
           Aqui está um resumo do que está acontecendo no seu negócio.
@@ -152,15 +155,15 @@ export default async function DashboardPage() {
           <h2 className="mb-3 font-display text-sm font-semibold text-text-primary">Ações Rápidas</h2>
           <div className="grid grid-cols-2 gap-2">
             {[
-              { label: "Novo Orçamento",    href: "/orcamentos/novo",  icon: "📝" },
-              { label: "Fila de Impressão", href: "/producao",         icon: "🖨️" },
-              { label: "Novo Cliente",      href: "/clientes",         icon: "👤" },
-              { label: "Registrar Despesa", href: "/financeiro",       icon: "💸" },
-            ].map((action) => (
-              <Link key={action.href} href={action.href}
+              { label: "Novo Orçamento",    href: "/orcamentos/novo", Icon: FilePlus  },
+              { label: "Fila de Impressão", href: "/producao",        Icon: Printer   },
+              { label: "Novo Cliente",      href: "/clientes",        Icon: UserPlus  },
+              { label: "Registrar Despesa", href: "/financeiro",      Icon: Receipt   },
+            ].map(({ label, href, Icon }) => (
+              <Link key={href} href={href}
                 className="flex flex-col items-center gap-2 rounded-lg border border-border p-3 text-center transition-all hover:border-primary hover:bg-primary-subtle">
-                <span className="text-xl">{action.icon}</span>
-                <span className="text-xs font-medium text-text-secondary">{action.label}</span>
+                <Icon className="h-5 w-5 text-text-secondary" />
+                <span className="text-xs font-medium text-text-secondary">{label}</span>
               </Link>
             ))}
           </div>
