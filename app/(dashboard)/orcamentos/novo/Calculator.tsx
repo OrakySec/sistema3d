@@ -256,6 +256,7 @@ export function Calculator({ printers, filaments, clients, settings, plan, isFir
   }
 
   return (
+    <>
     <div className="mx-auto max-w-6xl">
       {/* Topbar */}
       <div className="mb-6 flex items-center justify-between gap-4">
@@ -543,5 +544,6 @@ export function Calculator({ printers, filaments, clients, settings, plan, isFir
       currentPlan={plan}
       isFirstSubscriber={isFirstSubscriber}
     />
+    </>
   );
 }
