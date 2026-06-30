@@ -62,6 +62,7 @@ interface Revenue {
   productionCost: number;
   netProfit: number;
   date: string;
+  notes?: string;
 }
 
 interface MonthlyBucket { month: string; receita: number; despesas: number; lucro: number }

@@ -58,7 +58,7 @@ export default async function FinanceiroPage() {
 
   return (
     <FinanceiroClient
-      initialRevenues={revenues.map((r) => ({ ...r, date: r.date.toISOString() }))}
+      initialRevenues={revenues.map((r) => ({ ...r, date: r.date.toISOString(), notes: r.notes ?? undefined }))}
       initialExpenses={expenses.map((e) => ({ ...e, date: e.date.toISOString(), notes: e.notes ?? undefined, customCategory: e.customCategory ?? undefined }))}
       monthlyData={buckets}
       profitData={profitData}
