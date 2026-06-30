@@ -48,10 +48,11 @@ export default async function PublicQuotePage({ params }: Props) {
         versions: { orderBy: { order: "asc" } },
         user: {
           select: {
-            businessName: true,
-            name:         true,
-            image:        true,
-            city:         true,
+            businessName:     true,
+            name:             true,
+            image:            true,
+            city:             true,
+            infinitypayHandle: true,
             settings: {
               select: {
                 paymentLinkEnabled:    true,

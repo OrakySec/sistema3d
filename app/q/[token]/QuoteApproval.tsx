@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import {
-  CheckCircle2, XCircle, Clock, Zap, ChevronDown, ChevronUp,
+  CheckCircle2, XCircle, Clock, Zap,
   MapPin, MessageCircle, CreditCard, AlertTriangle, Loader2,
 } from "lucide-react";
 
@@ -22,16 +22,9 @@ interface QuoteData {
   description?: string;
   filamentGrams: number;
   printHours: number;
-  filamentCost: number;
-  energyCost: number;
-  printerCost: number;
-  paintingCost: number;
-  productionCost: number;
-  profitAmount: number;
   totalPrice: number;
   status: string;
   expiresAt?: string;
-  viewCount: number;
   paymentLinkUrl?: string;
   versions: QuoteVersion[];
   filament?: { name: string; type: string; colorHex?: string };
@@ -42,6 +35,7 @@ interface QuoteData {
     name?: string;
     city?: string;
     image?: string;
+    infinitypayHandle?: string;
     settings?: {
       paymentLinkEnabled: boolean;
       paymentDepositPercent: number;
@@ -109,9 +103,30 @@ export function QuoteApproval({ token, initialData, initialError }: QuoteApprova
     : "idle"
   );
   const [selectedVersion, setSelectedVersion] = useState<string | null>(null);
-  const [showBreakdown, setShowBreakdown]     = useState(false);
   const [rejectReason, setRejectReason]       = useState("");
   const [showRejectForm, setShowRejectForm]   = useState(false);
+  const [paymentUrl, setPaymentUrl]           = useState<string | null>(quote?.paymentLinkUrl ?? null);
+  const [loadingPayment, setLoadingPayment]   = useState(false);
+  const [paymentError, setPaymentError]       = useState<string | null>(null);
+
+  async function handlePayment() {
+    setLoadingPayment(true);
+    setPaymentError(null);
+    try {
+      const res  = await fetch(`/api/q/${token}/payment`, { method: "POST" });
+      const data = await res.json();
+      if (data.url) {
+        setPaymentUrl(data.url);
+        window.open(data.url, "_blank");
+      } else {
+        setPaymentError(data.error ?? "Erro ao gerar link.");
+      }
+    } catch {
+      setPaymentError("Erro de conexão. Tente novamente.");
+    } finally {
+      setLoadingPayment(false);
+    }
+  }
 
   const countdown = useCountdown(quote?.expiresAt);
   const isExpired = countdown?.expired || quote?.status === "EXPIRED";
@@ -168,7 +183,7 @@ export function QuoteApproval({ token, initialData, initialError }: QuoteApprova
   const maker = quote.user.businessName ?? quote.user.name ?? "Maker 3D";
   const depositPercent = quote.user.settings?.paymentDepositPercent ?? 50;
   const depositValue   = displayPrice * (depositPercent / 100);
-  const showPayment    = quote.user.settings?.paymentLinkEnabled && action === "approved";
+  const showPayment    = !!(quote.user.settings?.paymentLinkEnabled && quote.user.infinitypayHandle);
 
   // ── Tela de sucesso — aprovado ────────────────────────────
   if (action === "approved") {
@@ -188,14 +203,17 @@ export function QuoteApproval({ token, initialData, initialError }: QuoteApprova
 
         {showPayment && (
           <div className="mt-6 w-full max-w-sm">
-            <div className="mb-4 rounded-xl border border-border bg-surface p-5">
-              <p className="text-sm font-semibold text-text-primary mb-1">Quer adiantar a entrada?</p>
+            <div className="rounded-xl border border-border bg-surface p-5">
+              <p className="text-sm font-semibold text-text-primary mb-1">Adiantar entrada</p>
               <p className="text-xs text-text-muted mb-4">
                 Garanta sua vaga na fila pagando {depositPercent}% agora ({BRL(depositValue)}).
               </p>
-              {quote.paymentLinkUrl ? (
+              {paymentError && (
+                <p className="mb-3 text-xs text-error">{paymentError}</p>
+              )}
+              {paymentUrl ? (
                 <a
-                  href={quote.paymentLinkUrl}
+                  href={paymentUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-center gap-2 w-full rounded-lg bg-success py-3 text-sm font-semibold text-white hover:opacity-90 transition-opacity"
@@ -204,9 +222,14 @@ export function QuoteApproval({ token, initialData, initialError }: QuoteApprova
                   Pagar entrada — {BRL(depositValue)}
                 </a>
               ) : (
-                <div className="rounded-lg border border-border bg-surface-hover px-4 py-3 text-xs text-text-muted text-center">
-                  Link de pagamento será enviado em breve via WhatsApp.
-                </div>
+                <button
+                  onClick={handlePayment}
+                  disabled={loadingPayment}
+                  className="flex items-center justify-center gap-2 w-full rounded-lg bg-success py-3 text-sm font-semibold text-white hover:opacity-90 transition-opacity disabled:opacity-60"
+                >
+                  {loadingPayment ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
+                  {loadingPayment ? "Gerando link..." : `Pagar entrada — ${BRL(depositValue)}`}
+                </button>
               )}
             </div>
           </div>
@@ -382,53 +405,12 @@ export function QuoteApproval({ token, initialData, initialError }: QuoteApprova
           <div className="mb-6 rounded-2xl gradient-primary p-6 text-center shadow-glow">
             <p className="text-sm font-medium text-white/70">Valor total</p>
             <p className="mt-1 font-display text-4xl font-bold text-white">{BRL(displayPrice)}</p>
-            {quote.user.settings?.paymentLinkEnabled && (
+            {showPayment && (
               <p className="mt-2 text-xs text-white/70">
                 Entrada de {depositPercent}%: {BRL(depositValue)}
               </p>
             )}
           </div>
-
-          {/* Detalhamento de custo (expansível) */}
-          <button
-            onClick={() => setShowBreakdown((v) => !v)}
-            className="flex w-full items-center justify-between rounded-lg border border-border bg-surface-hover px-4 py-3 text-sm font-medium text-text-secondary transition-colors hover:text-text-primary mb-3"
-          >
-            <span>Ver detalhamento de custos</span>
-            {showBreakdown ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          </button>
-
-          {showBreakdown && (
-            <div className="mb-5 rounded-xl border border-border bg-background p-4 animate-fade-in">
-              <div className="flex flex-col gap-2.5">
-                {[
-                  { label: "Filamento",          value: quote.filamentCost  },
-                  { label: "Energia elétrica",    value: quote.energyCost    },
-                  { label: "Desgaste impressora", value: quote.printerCost   },
-                  ...(quote.paintingCost > 0 ? [{ label: "Pintura / pós-produção", value: quote.paintingCost }] : []),
-                ].map((row) => (
-                  <div key={row.label} className="flex items-center justify-between text-sm">
-                    <span className="text-text-secondary">{row.label}</span>
-                    <span className="font-medium text-text-primary">{BRL(row.value)}</span>
-                  </div>
-                ))}
-                <div className="my-1 border-t border-border" />
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-text-secondary">Custo de produção</span>
-                  <span className="font-semibold text-text-primary">{BRL(quote.productionCost)}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-success">Margem do maker</span>
-                  <span className="font-semibold text-success">{BRL(quote.profitAmount)}</span>
-                </div>
-                <div className="my-1 border-t border-border" />
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-bold text-text-primary">Total</span>
-                  <span className="font-display text-lg font-bold text-primary">{BRL(displayPrice)}</span>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Botões de ação */}
           {!showRejectForm ? (
