@@ -14,7 +14,6 @@ export const DEFAULT_EXPENSE_CATEGORIES: ExpenseCategoryDef[] = [
   { key: "TOOLS",         label: "Ferramentas",      color: "#14B8A6", order: 4, isDefault: true },
   { key: "PACKAGING",     label: "Embalagem",        color: "#F43F5E", order: 5, isDefault: true },
   { key: "SHIPPING",      label: "Frete",            color: "#6366F1", order: 6, isDefault: true },
-  { key: "OTHER",         label: "Outros",           color: "#6B7280", order: 7, isDefault: true },
 ];
 
 export const CATEGORY_COLOR_PALETTE = [

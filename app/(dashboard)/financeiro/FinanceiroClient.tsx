@@ -149,16 +149,6 @@ function ExpenseDialog({ expense, categories, onClose }: { expense?: Expense; ca
             </div>
           </FormField>
 
-          {selectedCategory === "OTHER" && (
-            <FormField label="Nome da categoria" error={errors.customCategory?.message} className="sm:col-span-2">
-              <input
-                {...register("customCategory")}
-                placeholder="Ex: Curso, Software, Aluguel..."
-                className={inputCls}
-              />
-            </FormField>
-          )}
-
           {selectedCategory === NEW_CATEGORY_VALUE && (
             <div className="sm:col-span-2 flex flex-col gap-3 rounded-lg border border-border bg-surface-hover p-3">
               <FormField label="Nome da nova categoria" error={catError ?? undefined}>
@@ -554,8 +544,8 @@ export function FinanceiroClient({ initialRevenues, initialExpenses, monthlyData
   }, [monthRevenues, monthExpenses, prevRevenues, prevExpenses]);
 
   const catColor = (key: string) => categories.find((c) => c.key === key)?.color ?? "#6B7280";
-  const catLabel = (key: string, custom?: string) =>
-    key === "OTHER" && custom ? custom : (categories.find((c) => c.key === key)?.label ?? key);
+  const catLabel = (key: string) =>
+    categories.find((c) => c.key === key)?.label ?? key;
 
   const pieData = useMemo(() => {
     const map = new Map<string, number>();
@@ -828,7 +818,7 @@ export function FinanceiroClient({ initialRevenues, initialExpenses, monthlyData
                     className="hidden sm:inline-flex w-fit items-center rounded-full border px-2.5 py-0.5 text-xs font-medium"
                     style={{ borderColor: catColor(e.category) + "40", color: catColor(e.category), backgroundColor: catColor(e.category) + "15" }}
                   >
-                    {catLabel(e.category, e.customCategory)}
+                    {catLabel(e.category)}
                   </span>
                   <p className="text-sm font-semibold text-error sm:text-right">
                     -{e.amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
