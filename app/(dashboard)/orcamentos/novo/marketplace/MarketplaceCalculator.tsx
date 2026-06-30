@@ -7,10 +7,7 @@ import {
   ChevronLeft, Calculator as CalcIcon, Package, Printer as PrinterIcon,
   TrendingUp, Store, Loader2, BookOpen,
 } from "lucide-react";
-import {
-  calculateQuote, formatBRL,
-  marketplaceSuggestedPrice, marginFromMarketplacePrice,
-} from "@/lib/calculations";
+import { calculateQuote, formatBRL } from "@/lib/calculations";
 import { InfoTip } from "@/components/shared/InfoTip";
 import { MARKETPLACE_PLATFORMS } from "@/lib/marketplace";
 import { publishToCatalog } from "@/lib/actions/catalog";
@@ -87,6 +84,9 @@ export function MarketplaceCalculator({ printers, filaments, settings }: Marketp
   const [printHours, setPrintHours]     = useState(3);
   const [paintingHours, setPaintingHours] = useState(0);
 
+  // Custos adicionais
+  const [packagingCost, setPackagingCost] = useState(0);
+
   // Marketplace
   const [platform, setPlatform]       = useState(MARKETPLACE_PLATFORMS[0].value);
   const [platformFee, setPlatformFee] = useState(MARKETPLACE_PLATFORMS[0].fee);
@@ -120,23 +120,22 @@ export function MarketplaceCalculator({ printers, filaments, settings }: Marketp
   const { suggestedPrice, effectiveMargin } = useMemo(() => {
     if (!baseBreakdown) return { suggestedPrice: 0, effectiveMargin: 0 };
     const { productionCost, paintingCost } = baseBreakdown;
+    const totalCost = productionCost + paintingCost + packagingCost;
     if (priceMode === "margin") {
-      return {
-        suggestedPrice: marketplaceSuggestedPrice(productionCost, paintingCost, margin, platformFee),
-        effectiveMargin: margin,
-      };
+      // Preço que garante a margem após descontar a taxa da plataforma
+      const price = totalCost * (1 + margin / 100) / (1 - platformFee / 100);
+      return { suggestedPrice: price, effectiveMargin: margin };
     } else {
-      const em = marginFromMarketplacePrice(targetPrice, productionCost, paintingCost, platformFee);
-      return {
-        suggestedPrice: targetPrice,
-        effectiveMargin: Math.max(0, em),
-      };
+      const netAfterFee = targetPrice * (1 - platformFee / 100);
+      const em = totalCost > 0 ? ((netAfterFee - totalCost) / totalCost) * 100 : 0;
+      return { suggestedPrice: targetPrice, effectiveMargin: Math.max(0, em) };
     }
-  }, [baseBreakdown, priceMode, margin, targetPrice, platformFee]);
+  }, [baseBreakdown, priceMode, margin, targetPrice, platformFee, packagingCost]);
 
+  const totalCostPerUnit    = (baseBreakdown?.productionCost ?? 0) + (baseBreakdown?.paintingCost ?? 0) + packagingCost;
   const platformFeeAmount   = suggestedPrice * (platformFee / 100);
   const netRevenue          = suggestedPrice - platformFeeAmount;
-  const profitPerUnit       = netRevenue - (baseBreakdown?.productionCost ?? 0) - (baseBreakdown?.paintingCost ?? 0);
+  const profitPerUnit       = netRevenue - totalCostPerUnit;
   const batchProfit         = profitPerUnit * quantity;
 
   function handlePlatformChange(val: string) {
@@ -155,7 +154,7 @@ export function MarketplaceCalculator({ printers, filaments, settings }: Marketp
       fd.append("filamentCost",      String(baseBreakdown.filamentCost));
       fd.append("energyCost",        String(baseBreakdown.energyCost));
       fd.append("printerCost",       String(baseBreakdown.printerCost));
-      fd.append("paintingCost",      String(baseBreakdown.paintingCost));
+      fd.append("paintingCost",      String(baseBreakdown.paintingCost + packagingCost));
       fd.append("filamentGrams",     String(filamentGrams));
       fd.append("printHours",        String(printHours));
       fd.append("printerId",         printerId);
@@ -257,6 +256,13 @@ export function MarketplaceCalculator({ printers, filaments, settings }: Marketp
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-text-muted">h</span>
                 </div>
               </Field>
+              <Field label="Embalagem (R$)" tip="Custo de caixa, plástico bolha, fita, etc. por unidade.">
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-text-muted">R$</span>
+                  <input type="number" min={0} step={0.01} value={packagingCost}
+                    onChange={(e) => setPackagingCost(Number(e.target.value))} className={`${inputCls} pl-8`} />
+                </div>
+              </Field>
             </div>
           </Section>
 
@@ -346,10 +352,11 @@ export function MarketplaceCalculator({ printers, filaments, settings }: Marketp
                     <CostRow label="Energia elétrica" value={baseBreakdown.energyCost} />
                     <CostRow label="Desgaste impressora" value={baseBreakdown.printerCost} />
                     {paintingHours > 0 && <CostRow label={`Pintura (${paintingHours}h)`} value={baseBreakdown.paintingCost} />}
+                    {packagingCost > 0 && <CostRow label="Embalagem" value={packagingCost} />}
                     <div className="my-1 border-t border-border" />
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-text-secondary">Custo de produção</span>
-                      <span className="text-sm font-semibold text-text-primary">{formatBRL(baseBreakdown.productionCost + baseBreakdown.paintingCost)}</span>
+                      <span className="text-sm text-text-secondary">Custo total/un.</span>
+                      <span className="text-sm font-semibold text-text-primary">{formatBRL(totalCostPerUnit)}</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-text-secondary">Taxa {platformFee}%</span>
