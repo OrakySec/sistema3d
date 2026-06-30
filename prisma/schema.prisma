@@ -20,6 +20,12 @@ enum Role {
   USER   // Assinante normal
 }
 
+enum Plan {
+  FREE
+  PRO
+  STUDIO
+}
+
 enum SubscriptionStatus {
   TRIAL
   ACTIVE
@@ -119,6 +125,7 @@ model User {
   logoUrl       String?
 
   // Stripe
+  plan                 Plan     @default(FREE)
   stripeCustomerId     String?  @unique
   stripeSubscriptionId String?  @unique
   subscriptionStatus   SubscriptionStatus @default(TRIAL)

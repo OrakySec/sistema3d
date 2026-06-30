@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
+import { checkLimit } from "@/lib/limits";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -25,6 +26,10 @@ export async function createClient(formData: FormData) {
   const userId = await getUserId();
   const parsed = clientSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: "Dados inválidos." };
+
+  const count = await prisma.client.count({ where: { userId } });
+  const limitCheck = await checkLimit(userId, "clients", count);
+  if (!limitCheck.allowed) return { error: "LIMIT_EXCEEDED", key: "clients", plan: limitCheck.plan, limit: limitCheck.limit };
 
   const { tags, email, ...data } = parsed.data;
   const tagList = tags ? tags.split(",").map((t) => t.trim()).filter(Boolean) : [];

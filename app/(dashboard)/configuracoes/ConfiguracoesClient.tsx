@@ -9,8 +9,11 @@ import {
 import { SettingToggle } from "@/components/shared/SettingToggle";
 import { InfoTip }        from "@/components/shared/InfoTip";
 import { WhatsAppConnect } from "@/components/whatsapp/WhatsAppConnect";
+import { BillingSection } from "@/components/shared/BillingSection";
 import { inputCls }       from "@/components/shared/CrudDialog";
 import { saveSettings }   from "@/lib/actions/settings";
+import type { Plan } from "@/lib/plans";
+type SubscriptionStatus = "TRIAL" | "ACTIVE" | "PAST_DUE" | "CANCELED" | "UNPAID";
 
 // ─── Tipos ───────────────────────────────────────────────────
 
@@ -53,11 +56,15 @@ interface Props {
   initialSettings: SettingsData;
   infinitypayHandle?: string;
   whatsappConnected: boolean;
+  plan: Plan;
+  subscriptionStatus: SubscriptionStatus;
+  currentPeriodEnd: string | null;
+  hasStripeId: boolean;
 }
 
 // ─── Componentes auxiliares ───────────────────────────────────
 
-type TabId = "perfil" | "custos" | "orcamentos" | "whatsapp" | "estoque" | "portfolio" | "integracoes";
+type TabId = "perfil" | "custos" | "orcamentos" | "whatsapp" | "estoque" | "portfolio" | "integracoes" | "assinatura";
 
 const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: "perfil",       label: "Perfil",       icon: User },
@@ -67,6 +74,7 @@ const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: "estoque",      label: "Estoque",      icon: Bell },
   { id: "portfolio",    label: "Portfólio",    icon: Shield },
   { id: "integracoes",  label: "Integrações",  icon: Plug },
+  { id: "assinatura",   label: "Assinatura",   icon: Zap },
 ];
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -108,7 +116,7 @@ function InputRow({ label, tip, children }: { label: string; tip?: string; child
 
 // ─── Página ───────────────────────────────────────────────────
 
-export function ConfiguracoesClient({ initialUser, initialSettings, infinitypayHandle, whatsappConnected }: Props) {
+export function ConfiguracoesClient({ initialUser, initialSettings, infinitypayHandle, whatsappConnected, plan, subscriptionStatus, currentPeriodEnd, hasStripeId }: Props) {
   const [tab, setTab]             = useState<TabId>("perfil");
   const [u, setU]                 = useState<UserData>(initialUser);
   const [s, setS]                 = useState<SettingsData>(initialSettings);
@@ -571,6 +579,16 @@ export function ConfiguracoesClient({ initialUser, initialSettings, infinitypayH
             />
           </Section>
         </>
+      )}
+
+      {/* ─── Assinatura ────────────────────────────────────── */}
+      {tab === "assinatura" && (
+        <BillingSection
+          plan={plan}
+          subscriptionStatus={subscriptionStatus}
+          currentPeriodEnd={currentPeriodEnd}
+          hasStripeId={hasStripeId}
+        />
       )}
     </div>
   );

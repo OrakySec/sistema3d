@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
+import { checkLimit } from "@/lib/limits";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -26,6 +27,10 @@ export async function createPrinter(formData: FormData) {
   const userId = await getUserId();
   const parsed = printerSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: "Dados inválidos." };
+
+  const count = await prisma.printer.count({ where: { userId } });
+  const limitCheck = await checkLimit(userId, "printers", count);
+  if (!limitCheck.allowed) return { error: "LIMIT_EXCEEDED", key: "printers", plan: limitCheck.plan, limit: limitCheck.limit };
 
   await prisma.printer.create({ data: { userId, ...parsed.data } });
   revalidatePath("/impressoras");

@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { calculateQuote } from "@/lib/calculations";
+import { checkLimit } from "@/lib/limits";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -39,7 +40,13 @@ export async function createQuote(formData: FormData) {
   const { expirationDays, versions: versionsRaw, ...data } = parsed.data;
   const userId = session.user.id;
 
-  // Buscar dados necessários para o cálculo
+  // Verificar limite de orçamentos do plano
+  const now   = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthCount = await prisma.quote.count({ where: { userId, createdAt: { gte: start } } });
+  const limitCheck = await checkLimit(userId, "quotesPerMonth", monthCount);
+  if (!limitCheck.allowed) return { error: "LIMIT_EXCEEDED", key: "quotesPerMonth", plan: limitCheck.plan, limit: limitCheck.limit };
+
   // Parsear versões adicionais
   let parsedVersions: z.infer<typeof versionSchema>[] = [];
   if (versionsRaw) {

@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
+import { checkLimit } from "@/lib/limits";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -30,6 +31,10 @@ export async function createFilament(formData: FormData) {
   const userId = await getUserId();
   const parsed = filamentSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: "Dados inválidos." };
+
+  const count = await prisma.filament.count({ where: { userId } });
+  const limitCheck = await checkLimit(userId, "filaments", count);
+  if (!limitCheck.allowed) return { error: "LIMIT_EXCEEDED", key: "filaments", plan: limitCheck.plan, limit: limitCheck.limit };
 
   await prisma.filament.create({ data: { userId, ...parsed.data } });
   revalidatePath("/estoque");
