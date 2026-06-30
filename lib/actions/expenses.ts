@@ -5,21 +5,28 @@ import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { addInterval } from "@/lib/recurring";
 
 const expenseSchema = z.object({
-  description:    z.string().min(2),
-  category:       z.string().min(1),
-  customCategory: z.string().optional(),
-  amount:         z.coerce.number().positive(),
-  date:           z.string().transform((d) => new Date(d + "T12:00:00")),
-  notes:          z.string().optional(),
-  isRecurring:    z.string().optional().transform((v) => v === "true"),
+  description:        z.string().min(2),
+  category:            z.string().min(1),
+  customCategory:      z.string().optional(),
+  amount:              z.coerce.number().positive(),
+  date:                z.string().transform((d) => new Date(d + "T12:00:00")),
+  notes:               z.string().optional(),
+  isRecurring:         z.string().optional().transform((v) => v === "true"),
+  recurringFrequency:  z.enum(["WEEKLY", "MONTHLY", "YEARLY"]).optional(),
 });
 
 async function getUserId() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
   return session.user.id;
+}
+
+function computeNextOccurrence(data: z.infer<typeof expenseSchema>) {
+  if (!data.isRecurring || !data.recurringFrequency) return null;
+  return addInterval(data.date, data.recurringFrequency);
 }
 
 export async function createExpense(formData: FormData) {
@@ -29,10 +36,14 @@ export async function createExpense(formData: FormData) {
   if (!parsed.success) return { error: "Dados inválidos." };
 
   const { customCategory, ...data } = parsed.data;
+  const recurringFrequency = data.isRecurring ? data.recurringFrequency ?? null : null;
+
   await prisma.expense.create({
     data: {
       userId,
       ...data,
+      recurringFrequency,
+      nextOccurrence: computeNextOccurrence(parsed.data),
       customCategory: data.category === "OTHER" ? (customCategory || null) : null,
     },
   });
@@ -46,10 +57,14 @@ export async function updateExpense(expenseId: string, formData: FormData) {
   if (!parsed.success) return { error: "Dados inválidos." };
 
   const { customCategory, ...data } = parsed.data;
+  const recurringFrequency = data.isRecurring ? data.recurringFrequency ?? null : null;
+
   await prisma.expense.update({
     where: { id: expenseId, userId },
     data: {
       ...data,
+      recurringFrequency,
+      nextOccurrence: computeNextOccurrence(parsed.data),
       customCategory: data.category === "OTHER" ? (customCategory || null) : null,
     },
   });

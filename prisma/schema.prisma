@@ -534,20 +534,29 @@ model PieceTemplate {
 // ─────────────────────────────────────────────────────────────
 
 model Expense {
-  id             String   @id @default(cuid())
-  userId         String
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  category       String // chave da categoria (padrão ou customizada via ExpenseCategoryConfig)
-  customCategory String? // Label personalizado quando category = OTHER (legado)
-  description    String
-  amount         Float
-  date           DateTime
-  receiptUrl     String?
-  notes          String?
-  isRecurring    Boolean  @default(false)
+  id                 String              @id @default(cuid())
+  userId             String
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category           String // chave da categoria (padrão ou customizada via ExpenseCategoryConfig)
+  customCategory     String? // Label personalizado quando category = OTHER (legado)
+  description        String
+  amount             Float
+  date               DateTime
+  receiptUrl         String?
+  notes              String?
+  isRecurring        Boolean             @default(false)
+  recurringFrequency RecurringFrequency?
+  nextOccurrence     DateTime? // próxima data de geração automática (somente no registro "modelo")
+  generatedFromId    String? // id da despesa recorrente que originou esta (instâncias geradas)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+enum RecurringFrequency {
+  WEEKLY
+  MONTHLY
+  YEARLY
 }
 
 model ExpenseCategoryConfig {

@@ -18,6 +18,9 @@ import { createExpense, updateExpense, deleteExpense } from "@/lib/actions/expen
 import { createRevenue, deleteRevenue } from "@/lib/actions/revenues";
 import { createCategory, updateCategory, deleteCategory } from "@/lib/actions/expense-categories";
 import { CATEGORY_COLOR_PALETTE } from "@/lib/expense-categories";
+import { RECURRING_FREQUENCY_LABELS, type RecurringFrequency } from "@/lib/recurring";
+
+const NEW_CATEGORY_VALUE = "__new__";
 
 // ─── Categorias ──────────────────────────────────────────────
 
@@ -26,13 +29,14 @@ interface CategoryDef { key: string; label: string; color: string; order: number
 // ─── Schema ───────────────────────────────────────────────────
 
 const expenseSchema = z.object({
-  description:    z.string().min(2, "Descrição obrigatória"),
-  category:       z.string().min(1, "Categoria obrigatória"),
-  customCategory: z.string().optional(),
-  amount:         z.coerce.number().positive("Valor obrigatório"),
-  date:           z.string().min(1, "Data obrigatória"),
-  notes:          z.string().optional(),
-  isRecurring:    z.boolean().optional(),
+  description:        z.string().min(2, "Descrição obrigatória"),
+  category:            z.string().min(1, "Categoria obrigatória"),
+  customCategory:      z.string().optional(),
+  amount:              z.coerce.number().positive("Valor obrigatório"),
+  date:                z.string().min(1, "Data obrigatória"),
+  notes:               z.string().optional(),
+  isRecurring:         z.boolean().optional(),
+  recurringFrequency:  z.enum(["WEEKLY", "MONTHLY", "YEARLY"]).optional(),
 });
 type ExpenseForm = z.infer<typeof expenseSchema>;
 
@@ -47,6 +51,7 @@ interface Expense {
   date: string;
   notes?: string;
   isRecurring: boolean;
+  recurringFrequency?: RecurringFrequency | null;
 }
 
 interface Revenue {
@@ -74,19 +79,36 @@ interface FinanceiroClientProps {
 
 function ExpenseDialog({ expense, categories, onClose }: { expense?: Expense; categories: CategoryDef[]; onClose: () => void }) {
   const [pending, startTransition] = useTransition();
+  const [newCatLabel, setNewCatLabel] = useState("");
+  const [newCatColor, setNewCatColor] = useState(CATEGORY_COLOR_PALETTE[0]);
+  const [catError, setCatError] = useState<string | null>(null);
   const { register, handleSubmit, watch, formState: { errors } } = useForm<ExpenseForm>({
     resolver: zodResolver(expenseSchema) as Resolver<ExpenseForm>,
     defaultValues: expense
-      ? { ...expense, date: expense.date.split("T")[0] }
+      ? { ...expense, date: expense.date.split("T")[0], recurringFrequency: expense.recurringFrequency ?? undefined }
       : { date: new Date().toISOString().split("T")[0], category: categories[0]?.key ?? "OTHER", isRecurring: false },
   });
 
   const selectedCategory = watch("category");
+  const isRecurring      = watch("isRecurring");
 
   function onSubmit(data: ExpenseForm) {
-    const fd = new FormData();
-    Object.entries(data).forEach(([k, v]) => v !== undefined && fd.append(k, String(v)));
     startTransition(async () => {
+      let categoryKey = data.category;
+
+      if (categoryKey === NEW_CATEGORY_VALUE) {
+        if (!newCatLabel.trim()) { setCatError("Informe o nome da categoria."); return; }
+        setCatError(null);
+        const catFd = new FormData();
+        catFd.append("label", newCatLabel.trim());
+        catFd.append("color", newCatColor);
+        const catResult = await createCategory(catFd);
+        if (catResult?.error || !catResult?.key) { setCatError(catResult?.error ?? "Erro ao criar categoria."); return; }
+        categoryKey = catResult.key;
+      }
+
+      const fd = new FormData();
+      Object.entries({ ...data, category: categoryKey }).forEach(([k, v]) => v !== undefined && fd.append(k, String(v)));
       if (expense) await updateExpense(expense.id, fd);
       else await createExpense(fd);
       onClose();
@@ -111,6 +133,7 @@ function ExpenseDialog({ expense, categories, onClose }: { expense?: Expense; ca
               {categories.map((c) => (
                 <option key={c.key} value={c.key}>{c.label}</option>
               ))}
+              <option value={NEW_CATEGORY_VALUE}>+ Nova categoria...</option>
             </select>
           </FormField>
 
@@ -136,6 +159,32 @@ function ExpenseDialog({ expense, categories, onClose }: { expense?: Expense; ca
             </FormField>
           )}
 
+          {selectedCategory === NEW_CATEGORY_VALUE && (
+            <div className="sm:col-span-2 flex flex-col gap-3 rounded-lg border border-border bg-surface-hover p-3">
+              <FormField label="Nome da nova categoria" error={catError ?? undefined}>
+                <input
+                  value={newCatLabel}
+                  onChange={(e) => setNewCatLabel(e.target.value)}
+                  placeholder="Ex: Aluguel, Software..."
+                  className={inputCls}
+                />
+              </FormField>
+              <div className="flex flex-wrap gap-2">
+                {CATEGORY_COLOR_PALETTE.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setNewCatColor(c)}
+                    className="flex h-7 w-7 items-center justify-center rounded-full border-2 transition-transform hover:scale-110"
+                    style={{ backgroundColor: c, borderColor: newCatColor === c ? "var(--color-text-primary)" : "transparent" }}
+                  >
+                    {newCatColor === c && <Check className="h-3.5 w-3.5 text-white" />}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <FormField label="Data" error={errors.date?.message}>
             <input {...register("date")} type="date" className={inputCls} />
           </FormField>
@@ -149,6 +198,19 @@ function ExpenseDialog({ expense, categories, onClose }: { expense?: Expense; ca
               </span>
             </label>
           </FormField>
+
+          {isRecurring && (
+            <FormField label="Frequência" className="sm:col-span-2" error={errors.recurringFrequency?.message}>
+              <select {...register("recurringFrequency")} className={selectCls} defaultValue="MONTHLY">
+                {(Object.entries(RECURRING_FREQUENCY_LABELS) as [RecurringFrequency, string][]).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-text-muted">
+                Uma nova despesa será registrada automaticamente a cada período, a partir desta data.
+              </p>
+            </FormField>
+          )}
 
           <FormField label="Observações" className="sm:col-span-2">
             <textarea
@@ -752,7 +814,12 @@ export function FinanceiroClient({ initialRevenues, initialExpenses, monthlyData
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
                         <p className="text-sm font-medium text-text-primary truncate">{e.description}</p>
-                        {e.isRecurring && <Repeat className="h-3 w-3 shrink-0 text-primary" />}
+                        {e.isRecurring && (
+                          <span className="flex shrink-0 items-center gap-1 rounded-full bg-primary-subtle px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                            <Repeat className="h-2.5 w-2.5" />
+                            {e.recurringFrequency ? RECURRING_FREQUENCY_LABELS[e.recurringFrequency] : "Recorrente"}
+                          </span>
+                        )}
                       </div>
                       {e.notes && <p className="text-xs text-text-muted truncate">{e.notes}</p>}
                     </div>

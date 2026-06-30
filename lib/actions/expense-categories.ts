@@ -42,7 +42,7 @@ export async function createCategory(formData: FormData) {
     },
   });
   revalidatePath("/financeiro");
-  return { ok: true };
+  return { ok: true, key };
 }
 
 export async function updateCategory(key: string, formData: FormData) {
