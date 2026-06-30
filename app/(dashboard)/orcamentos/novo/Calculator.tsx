@@ -6,7 +6,7 @@ import {
   ChevronLeft, Calculator as CalcIcon, Package, Printer as PrinterIcon,
   TrendingUp, Calendar, Plus, Trash2, Copy, Send, Save, Info, User, X, Loader2,
 } from "lucide-react";
-import { calculateQuote, formatBRL, type QuoteBreakdown } from "@/lib/calculations";
+import { calculateQuote, formatBRL, marginFromDirectPrice, type QuoteBreakdown } from "@/lib/calculations";
 import { InfoTip } from "@/components/shared/InfoTip";
 import { createQuote, updateQuote } from "@/lib/actions/quotes";
 import { createClientQuick } from "@/lib/actions/clients";
@@ -143,7 +143,9 @@ export function Calculator({ printers, filaments, clients, settings, plan, isFir
   const [printHours, setPrintHours]   = useState<number>(initialData?.printHours ?? 3);
 
   // Precificação
+  const [priceMode, setPriceMode]         = useState<"margin" | "price">("margin");
   const [profitMargin, setProfitMargin]   = useState(initialData?.profitMargin  ?? settings.defaultProfitMargin);
+  const [targetPrice, setTargetPrice]     = useState<number>(0); // usado no modo "price"
   const [paintingHours, setPaintingHours] = useState(initialData?.paintingHours ?? 0);
   const [expirationDays, setExpirationDays] = useState(initialData?.expirationDays ?? settings.quoteExpirationDays);
 
@@ -183,10 +185,11 @@ export function Calculator({ printers, filaments, clients, settings, plan, isFir
   const printer  = printers.find((p) => p.id === printerId)  ?? printers[0];
   const filament = filaments.find((f) => f.id === filamentId) ?? filaments[0];
 
-  const breakdown = useMemo(() => {
+  // Breakdown base (margem=0) para derivar margem a partir de preço
+  const baseBreakdown = useMemo(() => {
     if (!printer || !filament) return null;
     return calculateQuote({
-      filamentGrams, printHours, profitMargin, paintingHours,
+      filamentGrams, printHours, profitMargin: 0, paintingHours,
       filamentCostPerKg:         filament.costPerKg,
       printerPowerWatts:         printer.powerWatts,
       printerPurchasePrice:      printer.purchasePrice,
@@ -195,7 +198,28 @@ export function Calculator({ printers, filaments, clients, settings, plan, isFir
       energyCostKwh:             settings.energyCostKwh,
       paintingHourlyRate:        settings.paintingHourlyRate,
     });
-  }, [filamentGrams, printHours, profitMargin, paintingHours, filament, printer, settings]);
+  }, [filamentGrams, printHours, paintingHours, filament, printer, settings]);
+
+  const effectiveMargin = useMemo(() => {
+    if (priceMode === "price" && baseBreakdown && targetPrice > 0) {
+      return Math.max(0, marginFromDirectPrice(targetPrice, baseBreakdown.productionCost, baseBreakdown.paintingCost));
+    }
+    return profitMargin;
+  }, [priceMode, targetPrice, profitMargin, baseBreakdown]);
+
+  const breakdown = useMemo(() => {
+    if (!printer || !filament) return null;
+    return calculateQuote({
+      filamentGrams, printHours, profitMargin: effectiveMargin, paintingHours,
+      filamentCostPerKg:         filament.costPerKg,
+      printerPowerWatts:         printer.powerWatts,
+      printerPurchasePrice:      printer.purchasePrice,
+      printerEstimatedHours:     printer.estimatedHours,
+      printerMonthlyMaintenance: printer.monthlyMaintenance,
+      energyCostKwh:             settings.energyCostKwh,
+      paintingHourlyRate:        settings.paintingHourlyRate,
+    });
+  }, [filamentGrams, printHours, effectiveMargin, paintingHours, filament, printer, settings]);
 
   const expirationDate = useMemo(() => {
     const d = new Date();
@@ -256,7 +280,7 @@ export function Calculator({ printers, filaments, clients, settings, plan, isFir
     fd.append("filamentId",     filamentId);
     fd.append("filamentGrams",  String(filamentGrams));
     fd.append("printHours",     String(printHours));
-    fd.append("profitMargin",   String(profitMargin));
+    fd.append("profitMargin",   String(effectiveMargin));
     fd.append("paintingHours",  String(paintingHours));
     fd.append("expirationDays", String(expirationDays));
     if (versions.length > 0) {
@@ -437,19 +461,53 @@ export function Calculator({ printers, filaments, clients, settings, plan, isFir
 
           {/* Precificação */}
           <Section title="Precificação" icon={TrendingUp}>
+            {/* Toggle de modo */}
+            <div className="mb-4 flex gap-1 rounded-lg border border-border bg-background p-1 w-fit">
+              {(["margin", "price"] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => {
+                    if (mode === "price" && breakdown) setTargetPrice(Number(breakdown.totalPrice.toFixed(2)));
+                    if (mode === "margin" && baseBreakdown) setProfitMargin(Math.max(0, Math.round(effectiveMargin)));
+                    setPriceMode(mode);
+                  }}
+                  className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                    priceMode === mode ? "bg-primary text-white" : "text-text-secondary hover:text-text-primary"
+                  }`}
+                >
+                  {mode === "margin" ? "Definir margem" : "Definir preço"}
+                </button>
+              ))}
+            </div>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Margem de lucro (%)" tip="Percentual de lucro sobre o custo de produção.">
-                <div className="flex items-center gap-3">
-                  <input type="range" min={0} max={200} step={5} value={profitMargin}
-                    onChange={(e) => setProfitMargin(Number(e.target.value))}
-                    className="flex-1 accent-primary" />
-                  <div className="relative w-20">
-                    <input type="number" min={0} max={500} value={profitMargin}
-                      onChange={(e) => setProfitMargin(Number(e.target.value))} className={inputCls} />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-text-muted">%</span>
+              {priceMode === "margin" ? (
+                <Field label="Margem de lucro (%)" tip="Percentual de lucro sobre o custo de produção.">
+                  <div className="flex items-center gap-3">
+                    <input type="range" min={0} max={200} step={5} value={profitMargin}
+                      onChange={(e) => setProfitMargin(Number(e.target.value))}
+                      className="flex-1 accent-primary" />
+                    <div className="relative w-20">
+                      <input type="number" min={0} max={500} value={profitMargin}
+                        onChange={(e) => setProfitMargin(Number(e.target.value))} className={inputCls} />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-text-muted">%</span>
+                    </div>
                   </div>
-                </div>
-              </Field>
+                </Field>
+              ) : (
+                <Field label="Preço desejado (R$)" tip="O sistema calcula automaticamente a margem com base neste preço.">
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-text-muted">R$</span>
+                    <input type="number" min={0} step={0.01} value={targetPrice}
+                      onChange={(e) => setTargetPrice(Number(e.target.value))} className={`${inputCls} pl-8`} />
+                  </div>
+                  {baseBreakdown && targetPrice > 0 && (
+                    <p className="text-xs text-text-muted mt-1">
+                      Margem resultante: <span className="font-semibold text-success">{Math.max(0, effectiveMargin).toFixed(1)}%</span>
+                    </p>
+                  )}
+                </Field>
+              )}
               <Field label="Horas de pintura / pós-prod."
                 tip={`Taxa hora: ${formatBRL(settings.paintingHourlyRate)}/h (configurável em Configurações → Custos).`}>
                 <div className="relative">
@@ -545,7 +603,7 @@ export function Calculator({ printers, filaments, clients, settings, plan, isFir
                       <span className="text-sm text-text-secondary">Custo de produção</span>
                       <span className="text-sm font-semibold text-text-primary">{formatBRL(breakdown.productionCost)}</span>
                     </div>
-                    <CostRow label={`Lucro (${profitMargin}%)`} value={breakdown.profitAmount} highlight />
+                    <CostRow label={`Lucro (${effectiveMargin.toFixed(1)}%)`} value={breakdown.profitAmount} highlight />
                     {paintingHours > 0 && (
                       <CostRow label={`Pintura (${paintingHours}h)`} value={breakdown.paintingCost}
                         sub={`${formatBRL(settings.paintingHourlyRate)}/h`} />

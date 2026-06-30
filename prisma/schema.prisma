@@ -143,6 +143,7 @@ model User {
   revenues               Revenue[]
   filaments              Filament[]
   pieceLibrary           PieceTemplate[]
+  catalogProducts        CatalogProduct[]
 
   accounts Account[]
   sessions Session[]
@@ -304,6 +305,11 @@ model Client {
 // ORÇAMENTOS
 // ─────────────────────────────────────────────────────────────
 
+enum QuoteType {
+  DIRECT
+  MARKETPLACE
+}
+
 model Quote {
   id        String   @id @default(cuid())
   userId    String
@@ -317,6 +323,12 @@ model Quote {
   pieceName   String
   description String? @db.Text
   photoUrl    String? // URL no MinIO
+
+  // Tipo de venda
+  quoteType   QuoteType @default(DIRECT)
+  platform    String?   // ex: mercado_livre, shopee
+  platformFee Float?    // % da taxa da plataforma
+  quantity    Int       @default(1)
 
   // Inputs do cálculo
   filamentGrams Float // Peso em gramas
@@ -507,6 +519,43 @@ model Supplier {
 // ─────────────────────────────────────────────────────────────
 // BIBLIOTECA DE PEÇAS (Templates)
 // ─────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────
+// CATÁLOGO PRIVADO
+// ─────────────────────────────────────────────────────────────
+
+model CatalogProduct {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name             String
+  description      String?  @db.Text
+  photoUrl         String?
+  // Custo de produção snapshot
+  productionCost   Float
+  filamentCost     Float    @default(0)
+  energyCost       Float    @default(0)
+  printerCost      Float    @default(0)
+  paintingCost     Float    @default(0)
+  filamentGrams    Float
+  printHours       Float
+  printerId        String?
+  filamentId       String?
+  // Precificação direta
+  directPrice      Float?
+  directMargin     Float?
+  // Marketplace
+  platform         String?
+  platformFee      Float?
+  marketplacePrice Float?
+  marketplaceMargin Float?
+  quantity         Int      @default(1)
+  // Ligação com orçamento de origem
+  quoteId          String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
 
 model PieceTemplate {
   id            String        @id @default(cuid())

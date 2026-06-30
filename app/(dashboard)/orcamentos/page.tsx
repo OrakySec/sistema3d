@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Plus, FileText } from "lucide-react";
+import { FileText } from "lucide-react";
+import { NovoOrcamentoButton } from "@/components/shared/NovoOrcamentoButton";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
@@ -52,13 +53,7 @@ export default async function OrcamentosPage({ searchParams }: Props) {
             {quotes.length} orçamento{quotes.length !== 1 ? "s" : ""} no total
           </p>
         </div>
-        <Link
-          href="/orcamentos/novo"
-          className="flex items-center gap-2 rounded-lg gradient-primary px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
-        >
-          <Plus className="h-4 w-4" />
-          Novo Orçamento
-        </Link>
+        <NovoOrcamentoButton />
       </div>
 
       <OrcamentosFilters />
@@ -118,13 +113,9 @@ export default async function OrcamentosPage({ searchParams }: Props) {
               : "Crie seu primeiro orçamento e envie para o cliente em minutos."}
           </p>
           {!q && !status && (
-            <Link
-              href="/orcamentos/novo"
-              className="mt-6 flex items-center gap-2 rounded-lg gradient-primary px-4 py-2.5 text-sm font-semibold text-white"
-            >
-              <Plus className="h-4 w-4" />
-              Novo Orçamento
-            </Link>
+            <div className="mt-6">
+              <NovoOrcamentoButton />
+            </div>
           )}
         </div>
       )}

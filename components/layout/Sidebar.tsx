@@ -11,7 +11,7 @@ import {
   DollarSign,
   Package,
   Printer,
-  Image,
+  BookOpen,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -58,8 +58,8 @@ const navItems = [
   },
   {
     href: "/portfolio",
-    label: "Portfólio",
-    icon: Image,
+    label: "Catálogo",
+    icon: BookOpen,
   },
 ];
 
