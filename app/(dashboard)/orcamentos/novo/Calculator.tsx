@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { calculateQuote, formatBRL, type QuoteBreakdown } from "@/lib/calculations";
 import { InfoTip } from "@/components/shared/InfoTip";
-import { createQuote } from "@/lib/actions/quotes";
+import { createQuote, updateQuote } from "@/lib/actions/quotes";
 import { createClientQuick } from "@/lib/actions/clients";
 import { UpgradeModal } from "@/components/shared/UpgradeModal";
 import type { Plan, LimitKey } from "@/lib/plans";
@@ -29,6 +29,20 @@ interface Settings {
   paintingHourlyRate: number; quoteExpirationDays: number;
 }
 
+interface InitialData {
+  pieceName:     string;
+  description:   string;
+  clientId:      string;
+  printerId:     string;
+  filamentId:    string;
+  filamentGrams: number;
+  printHours:    number;
+  profitMargin:  number;
+  paintingHours: number;
+  expirationDays: number;
+  versions: { label: string; description: string; paintingHours: number; profitMargin: number }[];
+}
+
 interface CalculatorProps {
   printers: PrinterOption[];
   filaments: FilamentOption[];
@@ -36,6 +50,8 @@ interface CalculatorProps {
   settings:  Settings;
   plan:              Plan;
   isFirstSubscriber: boolean;
+  quoteId?:     string;
+  initialData?: InitialData;
 }
 
 // ─── Versão ───────────────────────────────────────────────────
@@ -108,29 +124,33 @@ function MetricBox({ label, value, sub, highlight }: {
 
 // ─── Calculadora ─────────────────────────────────────────────
 
-export function Calculator({ printers, filaments, clients, settings, plan, isFirstSubscriber }: CalculatorProps) {
+export function Calculator({ printers, filaments, clients, settings, plan, isFirstSubscriber, quoteId, initialData }: CalculatorProps) {
+  const isEditing = !!quoteId;
+
   const [pending, startTransition] = useTransition();
   const [upgradeOpen, setUpgradeOpen]         = useState(false);
   const [upgradeLimitKey, setUpgradeLimitKey] = useState<LimitKey>("quotesPerMonth");
 
   // Dados da peça
-  const [pieceName, setPieceName]     = useState("");
-  const [description, setDescription] = useState("");
-  const [clientId, setClientId]       = useState("");
+  const [pieceName, setPieceName]     = useState(initialData?.pieceName     ?? "");
+  const [description, setDescription] = useState(initialData?.description   ?? "");
+  const [clientId, setClientId]       = useState(initialData?.clientId      ?? "");
 
   // Impressão
-  const [printerId, setPrinterId]     = useState(printers[0]?.id ?? "");
-  const [filamentId, setFilamentId]   = useState(filaments[0]?.id ?? "");
-  const [filamentGrams, setFilamentGrams] = useState<number>(50);
-  const [printHours, setPrintHours]   = useState<number>(3);
+  const [printerId, setPrinterId]     = useState(initialData?.printerId  ?? printers[0]?.id  ?? "");
+  const [filamentId, setFilamentId]   = useState(initialData?.filamentId ?? filaments[0]?.id ?? "");
+  const [filamentGrams, setFilamentGrams] = useState<number>(initialData?.filamentGrams ?? 50);
+  const [printHours, setPrintHours]   = useState<number>(initialData?.printHours ?? 3);
 
   // Precificação
-  const [profitMargin, setProfitMargin] = useState(settings.defaultProfitMargin);
-  const [paintingHours, setPaintingHours] = useState(0);
-  const [expirationDays, setExpirationDays] = useState(settings.quoteExpirationDays);
+  const [profitMargin, setProfitMargin]   = useState(initialData?.profitMargin  ?? settings.defaultProfitMargin);
+  const [paintingHours, setPaintingHours] = useState(initialData?.paintingHours ?? 0);
+  const [expirationDays, setExpirationDays] = useState(initialData?.expirationDays ?? settings.quoteExpirationDays);
 
   // Versões
-  const [versions, setVersions] = useState<QuoteVersion[]>([]);
+  const [versions, setVersions] = useState<QuoteVersion[]>(
+    initialData?.versions.map((v) => ({ id: crypto.randomUUID(), label: v.label, paintingHours: v.paintingHours, profitMargin: v.profitMargin, breakdown: null })) ?? []
+  );
 
   // Clientes (pode crescer com criação inline)
   const [localClients, setLocalClients] = useState<ClientOption[]>(clients);
@@ -226,6 +246,10 @@ export function Calculator({ printers, filaments, clients, settings, plan, isFir
       }))));
     }
     startTransition(async () => {
+      if (isEditing && quoteId) {
+        await updateQuote(quoteId, fd);
+        return;
+      }
       const res = await createQuote(fd);
       if (res?.error === "LIMIT_EXCEEDED") {
         setUpgradeLimitKey(res.key as LimitKey);
@@ -261,20 +285,29 @@ export function Calculator({ printers, filaments, clients, settings, plan, isFir
       {/* Topbar */}
       <div className="mb-6 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <Link href="/orcamentos" className="flex items-center gap-1.5 text-sm text-text-secondary hover:text-text-primary transition-colors">
-            <ChevronLeft className="h-4 w-4" /> Orçamentos
+          <Link href={isEditing ? `/orcamentos/${quoteId}` : "/orcamentos"}
+            className="flex items-center gap-1.5 text-sm text-text-secondary hover:text-text-primary transition-colors">
+            <ChevronLeft className="h-4 w-4" /> {isEditing ? "Voltar" : "Orçamentos"}
           </Link>
           <span className="text-text-muted">/</span>
-          <span className="text-sm font-medium text-text-primary">Novo Orçamento</span>
+          <span className="text-sm font-medium text-text-primary">
+            {isEditing ? "Editar Orçamento" : "Novo Orçamento"}
+          </span>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => handleSubmit("DRAFT")} disabled={pending || !pieceName}
-            className="flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-text-secondary transition-colors hover:border-primary/50 hover:text-text-primary disabled:opacity-50">
-            <Save className="h-4 w-4" /> Salvar rascunho
-          </button>
-          <button onClick={() => handleSubmit("SENT")} disabled={pending || !pieceName || !breakdown}
+          {!isEditing && (
+            <button onClick={() => handleSubmit("DRAFT")} disabled={pending || !pieceName}
+              className="flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-text-secondary transition-colors hover:border-primary/50 hover:text-text-primary disabled:opacity-50">
+              <Save className="h-4 w-4" /> Salvar rascunho
+            </button>
+          )}
+          <button onClick={() => handleSubmit(isEditing ? "DRAFT" : "SENT")} disabled={pending || !pieceName || !breakdown}
             className="flex items-center gap-2 rounded-lg gradient-primary px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50">
-            <Send className="h-4 w-4" /> Gerar link
+            {pending
+              ? <Loader2 className="h-4 w-4 animate-spin" />
+              : isEditing
+                ? <><Save className="h-4 w-4" /> Salvar alterações</>
+                : <><Send className="h-4 w-4" /> Gerar link</>}
           </button>
         </div>
       </div>
@@ -524,14 +557,20 @@ export function Calculator({ printers, filaments, clients, settings, plan, isFir
           </div>
 
           <div className="flex flex-col gap-2">
-            <button onClick={() => handleSubmit("SENT")} disabled={pending || !pieceName || !breakdown}
+            <button onClick={() => handleSubmit(isEditing ? "DRAFT" : "SENT")} disabled={pending || !pieceName || !breakdown}
               className="flex items-center justify-center gap-2 rounded-lg gradient-primary py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50">
-              <Send className="h-4 w-4" /> Gerar link de aprovação
+              {pending
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : isEditing
+                  ? <><Save className="h-4 w-4" /> Salvar alterações</>
+                  : <><Send className="h-4 w-4" /> Gerar link de aprovação</>}
             </button>
-            <button onClick={() => handleSubmit("DRAFT")} disabled={pending || !pieceName}
-              className="flex items-center justify-center gap-2 rounded-lg border border-border bg-surface py-2.5 text-sm font-medium text-text-secondary transition-colors hover:border-primary/50 hover:text-text-primary disabled:opacity-50">
-              <Save className="h-4 w-4" /> Salvar como rascunho
-            </button>
+            {!isEditing && (
+              <button onClick={() => handleSubmit("DRAFT")} disabled={pending || !pieceName}
+                className="flex items-center justify-center gap-2 rounded-lg border border-border bg-surface py-2.5 text-sm font-medium text-text-secondary transition-colors hover:border-primary/50 hover:text-text-primary disabled:opacity-50">
+                <Save className="h-4 w-4" /> Salvar como rascunho
+              </button>
+            )}
           </div>
         </div>
       </div>
