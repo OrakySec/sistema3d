@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import {
   User, DollarSign, FileText, MessageCircle,
   Bell, Shield, Save, Loader2, Zap,
-  ExternalLink, Copy, CheckCircle2, Plug, Wifi, WifiOff,
+  ExternalLink, Copy, CheckCircle2, Plug,
 } from "lucide-react";
 import { SettingToggle } from "@/components/shared/SettingToggle";
 import { InfoTip }        from "@/components/shared/InfoTip";
@@ -113,8 +113,6 @@ export function ConfiguracoesClient({ initialUser, initialSettings, infinitypayH
   const [u, setU]                 = useState<UserData>(initialUser);
   const [s, setS]                 = useState<SettingsData>(initialSettings);
   const [newHandle, setNewHandle] = useState("");
-  const [testingKey, setTestingKey]   = useState(false);
-  const [testResult, setTestResult]   = useState<"ok" | "fail" | null>(null);
   const [saved, setSaved]         = useState(false);
   const [copied, setCopied]       = useState(false);
   const [pending, startTransition] = useTransition();
@@ -134,21 +132,6 @@ export function ConfiguracoesClient({ initialUser, initialSettings, infinitypayH
         setTimeout(() => setSaved(false), 3000);
       }
     });
-  }
-
-  async function testInfinityPay() {
-    setTestingKey(true);
-    setTestResult(null);
-    try {
-      const res  = await fetch("/api/integrations/infinitypay/test");
-      const data = await res.json();
-      setTestResult(data.ok ? "ok" : "fail");
-      if (!data.ok && data.error) alert(`InfinityPay: ${data.error}`);
-    } catch {
-      setTestResult("fail");
-    } finally {
-      setTestingKey(false);
-    }
   }
 
   function copyPortfolioUrl() {
@@ -497,29 +480,18 @@ export function ConfiguracoesClient({ initialUser, initialSettings, infinitypayH
               </div>
               {infinitypayHandle && (
                 <div className="flex items-center gap-2 shrink-0">
-                  {testResult === "ok" && (
-                    <span className="flex items-center gap-1.5 rounded-full border border-success/30 bg-success-subtle px-2.5 py-0.5 text-xs font-medium text-success">
-                      <Wifi className="h-3 w-3" /> Válido
-                    </span>
-                  )}
-                  {testResult === "fail" && (
-                    <span className="flex items-center gap-1.5 rounded-full border border-error/30 bg-error-subtle px-2.5 py-0.5 text-xs font-medium text-error">
-                      <WifiOff className="h-3 w-3" /> Inválido
-                    </span>
-                  )}
-                  {testResult === null && (
-                    <span className="flex items-center gap-1.5 rounded-full border border-success/30 bg-success-subtle px-2.5 py-0.5 text-xs font-medium text-success">
-                      <CheckCircle2 className="h-3 w-3" /> Configurado
-                    </span>
-                  )}
-                  <button
-                    onClick={testInfinityPay}
-                    disabled={testingKey}
-                    className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:border-primary hover:text-primary transition-colors disabled:opacity-50"
+                  <span className="flex items-center gap-1.5 rounded-full border border-success/30 bg-success-subtle px-2.5 py-0.5 text-xs font-medium text-success">
+                    <CheckCircle2 className="h-3 w-3" /> Configurado
+                  </span>
+                  <a
+                    href={`https://app.infinitepay.io/${infinitypayHandle}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:border-primary hover:text-primary transition-colors"
                   >
-                    {testingKey ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wifi className="h-3.5 w-3.5" />}
-                    {testingKey ? "Testando..." : "Testar"}
-                  </button>
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Ver perfil
+                  </a>
                 </div>
               )}
             </div>
