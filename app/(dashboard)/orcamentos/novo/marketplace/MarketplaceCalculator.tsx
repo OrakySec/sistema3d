@@ -309,7 +309,10 @@ export function MarketplaceCalculator({ printers, filaments, settings }: Marketp
                 <Field label="Margem desejada (%)" tip="Margem sobre o custo de produção. O preço sugerido já considera a taxa da plataforma.">
                   <div className="flex items-center gap-3">
                     <input type="range" min={0} max={200} step={5} value={margin}
-                      onChange={(e) => setMargin(Number(e.target.value))} className="flex-1 accent-primary" />
+                      onChange={(e) => setMargin(Number(e.target.value))}
+                      className="slider flex-1"
+                      style={{ background: `linear-gradient(to right, #F97316 0%, #EF4444 ${Math.min(margin / 2, 100)}%, var(--color-border) ${Math.min(margin / 2, 100)}%)` }}
+                    />
                     <div className="relative w-20">
                       <input type="number" min={0} max={500} value={margin}
                         onChange={(e) => setMargin(Number(e.target.value))} className={inputCls} />

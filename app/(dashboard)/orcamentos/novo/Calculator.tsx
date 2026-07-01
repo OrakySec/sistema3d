@@ -485,9 +485,13 @@ export function Calculator({ printers, filaments, clients, settings, plan, isFir
               {priceMode === "margin" ? (
                 <Field label="Margem de lucro (%)" tip="Percentual de lucro sobre o custo de produção.">
                   <div className="flex items-center gap-3">
-                    <input type="range" min={0} max={200} step={5} value={profitMargin}
-                      onChange={(e) => setProfitMargin(Number(e.target.value))}
-                      className="flex-1 accent-primary" />
+                    <div className="relative flex-1 flex items-center">
+                      <input type="range" min={0} max={200} step={5} value={profitMargin}
+                        onChange={(e) => setProfitMargin(Number(e.target.value))}
+                        className="slider flex-1"
+                        style={{ background: `linear-gradient(to right, #F97316 0%, #EF4444 ${Math.min(profitMargin / 2, 100)}%, var(--color-border) ${Math.min(profitMargin / 2, 100)}%)` }}
+                      />
+                    </div>
                     <div className="relative w-20">
                       <input type="number" min={0} max={500} value={profitMargin}
                         onChange={(e) => setProfitMargin(Number(e.target.value))} className={inputCls} />
@@ -526,7 +530,10 @@ export function Calculator({ printers, filaments, clients, settings, plan, isFir
               <Field label="Prazo de validade" tip="Após esse prazo, o link público expira e o cliente não consegue mais aprovar.">
                 <div className="flex items-center gap-3">
                   <input type="range" min={1} max={30} step={1} value={expirationDays}
-                    onChange={(e) => setExpirationDays(Number(e.target.value))} className="flex-1 accent-primary" />
+                    onChange={(e) => setExpirationDays(Number(e.target.value))}
+                    className="slider flex-1"
+                    style={{ background: `linear-gradient(to right, #F97316 0%, #EF4444 ${((expirationDays - 1) / 29) * 100}%, var(--color-border) ${((expirationDays - 1) / 29) * 100}%)` }}
+                  />
                   <div className="relative w-24">
                     <input type="number" min={1} max={30} value={expirationDays}
                       onChange={(e) => setExpirationDays(Number(e.target.value))} className={inputCls} />
