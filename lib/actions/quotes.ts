@@ -28,6 +28,7 @@ const createQuoteSchema = z.object({
   paintingHours:  z.coerce.number().min(0),
   expirationDays: z.coerce.number().min(1).max(30).default(5),
   versions:       z.string().optional(), // JSON serializado
+  status:         z.enum(["DRAFT", "SENT"]).default("SENT"),
 });
 
 export async function createQuote(formData: FormData) {
@@ -37,7 +38,7 @@ export async function createQuote(formData: FormData) {
   const parsed = createQuoteSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: "Dados inválidos." };
 
-  const { expirationDays, versions: versionsRaw, ...data } = parsed.data;
+  const { expirationDays, versions: versionsRaw, status, ...data } = parsed.data;
   const userId = session.user.id;
 
   // Verificar limite de orçamentos do plano
@@ -115,7 +116,7 @@ export async function createQuote(formData: FormData) {
       ...breakdown,
       expiresAt,
       publicToken: crypto.randomBytes(16).toString("hex"),
-      status: "DRAFT",
+      status,
       versions: versionData.length > 0 ? { create: versionData } : undefined,
       kanbanCard: {
         create: {

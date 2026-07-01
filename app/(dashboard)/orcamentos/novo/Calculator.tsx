@@ -283,6 +283,7 @@ export function Calculator({ printers, filaments, clients, settings, plan, isFir
     fd.append("profitMargin",   String(effectiveMargin));
     fd.append("paintingHours",  String(paintingHours));
     fd.append("expirationDays", String(expirationDays));
+    fd.append("status",         status);
     if (versions.length > 0) {
       fd.append("versions", JSON.stringify(versions.map((v) => ({
         label:         v.label,
