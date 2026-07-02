@@ -487,6 +487,46 @@ function CategoriesSettings({ categories }: { categories: CategoryDef[] }) {
   );
 }
 
+// ─── Intervalo de tempo ───────────────────────────────────────
+
+type RangeKey = "thisMonth" | "lastMonth" | "last3" | "last6" | "thisYear" | "custom";
+
+const RANGE_OPTIONS: { key: RangeKey; label: string }[] = [
+  { key: "thisMonth",  label: "Este mês" },
+  { key: "lastMonth",  label: "Mês anterior" },
+  { key: "last3",      label: "Últimos 3 meses" },
+  { key: "last6",      label: "Últimos 6 meses" },
+  { key: "thisYear",   label: "Este ano" },
+  { key: "custom",     label: "Personalizado" },
+];
+
+function getRangeDates(key: RangeKey, customFrom: string, customTo: string): { from: Date; to: Date } {
+  const now = new Date();
+  switch (key) {
+    case "thisMonth":
+      return { from: new Date(now.getFullYear(), now.getMonth(), 1), to: new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59) };
+    case "lastMonth": {
+      const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      return { from: lm, to: new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59) };
+    }
+    case "last3": {
+      const d = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+      return { from: d, to: new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59) };
+    }
+    case "last6": {
+      const d = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+      return { from: d, to: new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59) };
+    }
+    case "thisYear":
+      return { from: new Date(now.getFullYear(), 0, 1), to: new Date(now.getFullYear(), 11, 31, 23, 59, 59) };
+    case "custom": {
+      const from = customFrom ? new Date(customFrom + "T00:00:00") : new Date(now.getFullYear(), now.getMonth(), 1);
+      const to   = customTo   ? new Date(customTo   + "T23:59:59") : new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+      return { from, to };
+    }
+  }
+}
+
 // ─── Página ───────────────────────────────────────────────────
 
 type TabType = "visao-geral" | "receitas" | "despesas" | "configuracoes";
@@ -500,25 +540,39 @@ export function FinanceiroClient({ initialRevenues, initialExpenses, monthlyData
   const [onlyRecurring, setOnlyRecurring] = useState(false);
   const [, startTransition]             = useTransition();
 
-  const now   = new Date();
-  const monthRevenues = initialRevenues.filter((r) => {
-    const d = new Date(r.date);
-    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-  });
-  const monthExpenses = initialExpenses.filter((e) => {
-    const d = new Date(e.date);
-    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-  });
+  // ── Intervalo de tempo ──
+  const [rangeKey, setRangeKey]         = useState<RangeKey>("thisMonth");
+  const [customFrom, setCustomFrom]     = useState("");
+  const [customTo, setCustomTo]         = useState("");
+  const [showCustom, setShowCustom]     = useState(false);
 
-  const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const prevRevenues = initialRevenues.filter((r) => {
-    const d = new Date(r.date);
-    return d.getMonth() === prevMonthDate.getMonth() && d.getFullYear() === prevMonthDate.getFullYear();
-  });
-  const prevExpenses = initialExpenses.filter((e) => {
-    const d = new Date(e.date);
-    return d.getMonth() === prevMonthDate.getMonth() && d.getFullYear() === prevMonthDate.getFullYear();
-  });
+  const { from: rangeFrom, to: rangeTo } = useMemo(
+    () => getRangeDates(rangeKey, customFrom, customTo),
+    [rangeKey, customFrom, customTo],
+  );
+
+  const inRange = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d >= rangeFrom && d <= rangeTo;
+  };
+
+  // Dados filtrados pelo intervalo selecionado
+  const rangeRevenues = useMemo(() => initialRevenues.filter((r) => inRange(r.date)), [initialRevenues, rangeFrom, rangeTo]);
+  const rangeExpenses = useMemo(() => initialExpenses.filter((e) => inRange(e.date)), [initialExpenses, rangeFrom, rangeTo]);
+
+  // Período anterior de mesma duração (para trend)
+  const prevRevenues = useMemo(() => {
+    const duration = rangeTo.getTime() - rangeFrom.getTime();
+    const prevTo   = new Date(rangeFrom.getTime() - 1);
+    const prevFrom = new Date(rangeFrom.getTime() - duration - 1);
+    return initialRevenues.filter((r) => { const d = new Date(r.date); return d >= prevFrom && d <= prevTo; });
+  }, [initialRevenues, rangeFrom, rangeTo]);
+  const prevExpenses = useMemo(() => {
+    const duration = rangeTo.getTime() - rangeFrom.getTime();
+    const prevTo   = new Date(rangeFrom.getTime() - 1);
+    const prevFrom = new Date(rangeFrom.getTime() - duration - 1);
+    return initialExpenses.filter((e) => { const d = new Date(e.date); return d >= prevFrom && d <= prevTo; });
+  }, [initialExpenses, rangeFrom, rangeTo]);
 
   function pctChange(curr: number, prev: number): number | null {
     if (prev === 0) return null;
@@ -526,9 +580,9 @@ export function FinanceiroClient({ initialRevenues, initialExpenses, monthlyData
   }
 
   const metrics = useMemo(() => {
-    const receita   = monthRevenues.reduce((a, r) => a + r.grossAmount, 0);
-    const lucro     = monthRevenues.reduce((a, r) => a + r.netProfit, 0);
-    const despTotal = monthExpenses.reduce((a, e) => a + e.amount, 0);
+    const receita   = rangeRevenues.reduce((a, r) => a + r.grossAmount, 0);
+    const lucro     = rangeRevenues.reduce((a, r) => a + r.netProfit, 0);
+    const despTotal = rangeExpenses.reduce((a, e) => a + e.amount, 0);
     const margem    = receita > 0 ? Math.round((lucro / receita) * 100) : 0;
 
     const prevReceita   = prevRevenues.reduce((a, r) => a + r.grossAmount, 0);
@@ -541,7 +595,7 @@ export function FinanceiroClient({ initialRevenues, initialExpenses, monthlyData
       lucroTrend:   pctChange(lucro, prevLucro),
       despTrend:    pctChange(despTotal, prevDespTotal),
     };
-  }, [monthRevenues, monthExpenses, prevRevenues, prevExpenses]);
+  }, [rangeRevenues, rangeExpenses, prevRevenues, prevExpenses]);
 
   const catColor = (key: string) => categories.find((c) => c.key === key)?.color ?? "#6B7280";
   const catLabel = (key: string) =>
@@ -549,11 +603,11 @@ export function FinanceiroClient({ initialRevenues, initialExpenses, monthlyData
 
   const pieData = useMemo(() => {
     const map = new Map<string, number>();
-    monthExpenses.forEach((e) => map.set(e.category, (map.get(e.category) ?? 0) + e.amount));
+    rangeExpenses.forEach((e) => map.set(e.category, (map.get(e.category) ?? 0) + e.amount));
     return categories
       .filter((c) => map.has(c.key))
       .map((c) => ({ name: c.label, value: map.get(c.key)!, color: c.color }));
-  }, [monthExpenses, categories]);
+  }, [rangeExpenses, categories]);
 
   const filteredExpenses = useMemo(() => {
     let list = filterCat === "ALL" ? initialExpenses : initialExpenses.filter((e) => e.category === filterCat);
@@ -578,14 +632,36 @@ export function FinanceiroClient({ initialRevenues, initialExpenses, monthlyData
   return (
     <>
       {/* Header */}
-      <div className="mb-6 flex items-center justify-between gap-4">
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl font-bold text-text-primary">Financeiro</h1>
           <p className="mt-0.5 text-sm text-text-secondary">
-            {now.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
+            {rangeFrom.toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })}
+            {" — "}
+            {rangeTo.toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Seletor de intervalo */}
+          <div className="flex flex-wrap items-center gap-1 rounded-xl border border-border bg-surface p-1">
+            {RANGE_OPTIONS.map((opt) => (
+              <button
+                key={opt.key}
+                onClick={() => {
+                  setRangeKey(opt.key);
+                  setShowCustom(opt.key === "custom");
+                }}
+                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                  rangeKey === opt.key
+                    ? "bg-primary text-white"
+                    : "text-text-secondary hover:text-text-primary"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+
           <button
             onClick={() => setRevenueDialog(true)}
             className="flex items-center gap-2 rounded-lg border border-success/40 bg-success-subtle px-4 py-2.5 text-sm font-semibold text-success transition-colors hover:bg-success/20"
@@ -602,6 +678,26 @@ export function FinanceiroClient({ initialRevenues, initialExpenses, monthlyData
           </button>
         </div>
       </div>
+
+      {/* Intervalo personalizado */}
+      {showCustom && (
+        <div className="mb-5 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-surface px-5 py-4 animate-fade-in">
+          <span className="text-sm font-medium text-text-secondary">De</span>
+          <input
+            type="date"
+            value={customFrom}
+            onChange={(e) => setCustomFrom(e.target.value)}
+            className="h-9 rounded-lg border border-border bg-background px-3 text-sm text-text-primary focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+          />
+          <span className="text-sm font-medium text-text-secondary">até</span>
+          <input
+            type="date"
+            value={customTo}
+            onChange={(e) => setCustomTo(e.target.value)}
+            className="h-9 rounded-lg border border-border bg-background px-3 text-sm text-text-primary focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+          />
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="mb-6 flex gap-1 rounded-xl border border-border bg-surface p-1 w-fit">
@@ -626,13 +722,13 @@ export function FinanceiroClient({ initialRevenues, initialExpenses, monthlyData
         <>
           <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <MetricCard
-              title="Receita Bruta" sub="este mês"
+              title="Receita Bruta" sub="no período selecionado"
               value={metrics.receita.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
               icon={DollarSign} color="text-success bg-success-subtle"
               trend={metrics.receitaTrend}
             />
             <MetricCard
-              title="Despesas Totais" sub="este mês"
+              title="Despesas Totais" sub="no período selecionado"
               value={metrics.despTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
               icon={ArrowDownRight} color="text-error bg-error-subtle"
               trend={metrics.despTrend === null ? null : -metrics.despTrend}
@@ -655,20 +751,20 @@ export function FinanceiroClient({ initialRevenues, initialExpenses, monthlyData
               <RevenueChart data={monthlyData} />
             </ChartCard>
 
-            <ChartCard title="Despesas por Categoria" sub="Este mês">
+            <ChartCard title="Despesas por Categoria" sub="Período selecionado">
               {pieData.length > 0
                 ? <ExpensesPieChart data={pieData} />
-                : <EmptyState message="Nenhuma despesa registrada este mês." />}
+                : <EmptyState message="Nenhuma despesa registrada no período." />}
             </ChartCard>
 
             <ChartCard title="Evolução do Lucro" sub="Últimos 6 meses">
               <ProfitAreaChart data={profitData} />
             </ChartCard>
 
-            <ChartCard title="Últimas Receitas" sub="Mais recentes">
-              {initialRevenues.length > 0 ? (
+            <ChartCard title="Últimas Receitas" sub="No período selecionado">
+              {rangeRevenues.length > 0 ? (
                 <div className="flex flex-col gap-2">
-                  {initialRevenues.slice(0, 5).map((r) => (
+                  {rangeRevenues.slice(0, 5).map((r) => (
                     <div key={r.id} className="flex items-center justify-between gap-3 rounded-lg bg-surface-hover px-3 py-2.5">
                       <div className="min-w-0">
                         <p className="text-xs font-medium text-text-primary truncate">{r.description}</p>
@@ -696,7 +792,7 @@ export function FinanceiroClient({ initialRevenues, initialExpenses, monthlyData
       {/* ─── Receitas ─────────────────────────────────────── */}
       {tab === "receitas" && (
         <div className="rounded-xl border border-border bg-surface overflow-hidden">
-          {initialRevenues.length > 0 ? (
+          {rangeRevenues.length > 0 ? (
             <>
               <div className="hidden grid-cols-[1fr_100px_100px_100px_90px_40px] gap-4 border-b border-border px-5 py-3 text-xs font-medium text-text-muted sm:grid">
                 <span>Descrição</span>
@@ -707,7 +803,7 @@ export function FinanceiroClient({ initialRevenues, initialExpenses, monthlyData
                 <span />
               </div>
               <div className="divide-y divide-border">
-                {initialRevenues.map((r) => (
+                {rangeRevenues.map((r) => (
                   <div key={r.id} className="group grid grid-cols-1 sm:grid-cols-[1fr_100px_100px_100px_90px_40px] items-center gap-4 px-5 py-3.5 hover:bg-surface-hover">
                     <div className="flex items-center gap-3">
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-success-subtle">
@@ -739,7 +835,7 @@ export function FinanceiroClient({ initialRevenues, initialExpenses, monthlyData
                 ))}
               </div>
               <div className="flex items-center justify-between border-t border-border px-5 py-4">
-                <span className="text-sm font-medium text-text-secondary">Total ({now.toLocaleDateString("pt-BR", { month: "long" })})</span>
+                <span className="text-sm font-medium text-text-secondary">Total no período</span>
                 <span className="font-display text-lg font-bold text-success">
                   {metrics.receita.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                 </span>
