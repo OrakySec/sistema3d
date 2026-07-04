@@ -6,14 +6,15 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Editar Orçamento" };
 
-export default async function EditarOrcamentoPage({ params }: { params: { id: string } }) {
+export default async function EditarOrcamentoPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
   const userId = session.user.id;
+  const { id } = await params;
 
   const [quote, printers, filaments, clients, settings, user] = await Promise.all([
     prisma.quote.findFirst({
-      where:   { id: params.id, userId },
+      where:   { id, userId },
       include: { versions: { orderBy: { order: "asc" } } },
     }),
     prisma.printer.findMany({
