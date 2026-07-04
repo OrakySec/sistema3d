@@ -219,9 +219,18 @@ export async function updateQuoteStatus(
 ) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
+  const userId = session.user.id;
+
+  const quote = await prisma.quote.findUnique({
+    where: { id: quoteId, userId },
+  });
+  if (!quote) return;
+
+  // Evitar receita duplicada se já estava aprovado
+  const wasApproved = quote.status === "APPROVED";
 
   await prisma.quote.update({
-    where: { id: quoteId, userId: session.user.id },
+    where: { id: quoteId, userId },
     data: {
       status,
       approvedAt: status === "APPROVED" ? new Date() : undefined,
@@ -229,6 +238,22 @@ export async function updateQuoteStatus(
     },
   });
 
+  if (status === "APPROVED" && !wasApproved) {
+    const productionCost = quote.filamentCost + quote.energyCost + quote.printerCost;
+    await prisma.revenue.create({
+      data: {
+        userId,
+        description:    quote.pieceName,
+        grossAmount:    quote.totalPrice,
+        productionCost,
+        netProfit:      quote.profitAmount + quote.paintingCost,
+        date:           new Date(),
+      },
+    });
+  }
+
+  revalidatePath("/financeiro");
+  revalidatePath("/dashboard");
   revalidatePath("/orcamentos");
   revalidatePath(`/orcamentos/${quoteId}`);
 }

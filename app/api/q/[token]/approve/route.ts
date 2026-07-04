@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { revalidatePath } from "next/cache";
 
 export async function POST(
   _req: Request,
@@ -24,10 +25,23 @@ export async function POST(
     return NextResponse.json({ ok: true, alreadyApproved: true });
   }
 
+  const productionCost = quote.filamentCost + quote.energyCost + quote.printerCost;
+
   await prisma.$transaction([
     prisma.quote.update({
       where: { publicToken: token },
       data:  { status: "APPROVED", approvedAt: new Date() },
+    }),
+    // Criar receita automaticamente
+    prisma.revenue.create({
+      data: {
+        userId:         quote.userId,
+        description:    quote.pieceName,
+        grossAmount:    quote.totalPrice,
+        productionCost,
+        netProfit:      quote.profitAmount + quote.paintingCost,
+        date:           new Date(),
+      },
     }),
     // Mover kanban para "Aprovado"
     ...(quote.kanbanCard
@@ -37,6 +51,9 @@ export async function POST(
         })]
       : []),
   ]);
+
+  revalidatePath("/financeiro");
+  revalidatePath("/dashboard");
 
   return NextResponse.json({ ok: true });
 }
