@@ -32,9 +32,10 @@ function parseBRL(raw: string): number {
 }
 
 function formatBRLMask(raw: string): string {
-  // Mantém só dígitos e uma vírgula
   const digits = raw.replace(/[^\d,]/g, "");
-  return digits;
+  const parts  = digits.split(",");
+  // Máximo uma vírgula e 2 casas decimais
+  return parts.length > 1 ? parts[0] + "," + parts.slice(1).join("").slice(0, 2) : parts[0];
 }
 
 function CurrencyInput({
@@ -101,14 +102,9 @@ interface Revenue {
   notes?: string;
 }
 
-interface MonthlyBucket { month: string; receita: number; despesas: number; lucro: number }
-interface ProfitBucket  { month: string; lucro: number; margem: number }
-
 interface FinanceiroClientProps {
   initialRevenues: Revenue[];
   initialExpenses: Expense[];
-  monthlyData: MonthlyBucket[];
-  profitData: ProfitBucket[];
   categories: CategoryDef[];
 }
 
@@ -119,7 +115,7 @@ function ExpenseDialog({ expense, categories, onClose }: { expense?: Expense; ca
   const [newCatLabel, setNewCatLabel] = useState("");
   const [newCatColor, setNewCatColor] = useState(CATEGORY_COLOR_PALETTE[0]);
   const [catError, setCatError] = useState<string | null>(null);
-  const [amountRaw, setAmountRaw] = useState(expense ? String(expense.amount).replace(".", ",") : "");
+  const [amountRaw, setAmountRaw] = useState(expense ? expense.amount.toFixed(2).replace(".", ",") : "");
   const [amountError, setAmountError] = useState<string | null>(null);
 
   const { register, handleSubmit, watch, formState: { errors } } = useForm<ExpenseForm>({
@@ -581,7 +577,9 @@ function getRangeDates(key: RangeKey, customFrom: string, customTo: string): { f
 
 type TabType = "visao-geral" | "receitas" | "despesas" | "configuracoes";
 
-export function FinanceiroClient({ initialRevenues, initialExpenses, monthlyData, profitData, categories }: FinanceiroClientProps) {
+const MONTH_LABELS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+
+export function FinanceiroClient({ initialRevenues, initialExpenses, categories }: FinanceiroClientProps) {
   const [tab, setTab]                   = useState<TabType>("visao-geral");
   const [dialogOpen, setDialogOpen]     = useState(false);
   const [revenueDialog, setRevenueDialog] = useState(false);
@@ -647,6 +645,34 @@ export function FinanceiroClient({ initialRevenues, initialExpenses, monthlyData
     };
   }, [rangeRevenues, rangeExpenses, prevRevenues, prevExpenses]);
 
+  // ── Dados dos gráficos calculados no client (responsivos ao intervalo) ──
+  const monthlyData = useMemo(() => {
+    // Gera buckets mensais cobrindo rangeFrom → rangeTo
+    const buckets: { month: string; receita: number; despesas: number; lucro: number }[] = [];
+    const cursor = new Date(rangeFrom.getFullYear(), rangeFrom.getMonth(), 1);
+    const end    = new Date(rangeTo.getFullYear(), rangeTo.getMonth(), 1);
+    while (cursor <= end) {
+      buckets.push({ month: MONTH_LABELS[cursor.getMonth()], receita: 0, despesas: 0, lucro: 0 });
+      cursor.setMonth(cursor.getMonth() + 1);
+    }
+    const bucketOf = (dateStr: string) => {
+      const d = new Date(dateStr);
+      const diffMonths = (d.getFullYear() - rangeFrom.getFullYear()) * 12 + (d.getMonth() - rangeFrom.getMonth());
+      return diffMonths >= 0 && diffMonths < buckets.length ? diffMonths : null;
+    };
+    rangeRevenues.forEach((r) => { const i = bucketOf(r.date); if (i !== null) { buckets[i].receita += r.grossAmount; buckets[i].lucro += r.netProfit; } });
+    rangeExpenses.forEach((e) => { const i = bucketOf(e.date); if (i !== null) buckets[i].despesas += e.amount; });
+    return buckets;
+  }, [rangeRevenues, rangeExpenses, rangeFrom, rangeTo]);
+
+  const profitData = useMemo(() =>
+    monthlyData.map((b) => ({
+      month:  b.month,
+      lucro:  b.lucro,
+      margem: b.receita > 0 ? Math.round((b.lucro / b.receita) * 100) : 0,
+    })),
+  [monthlyData]);
+
   const catColor = (key: string) => categories.find((c) => c.key === key)?.color ?? "#6B7280";
   const catLabel = (key: string) =>
     categories.find((c) => c.key === key)?.label ?? key;
@@ -660,10 +686,10 @@ export function FinanceiroClient({ initialRevenues, initialExpenses, monthlyData
   }, [rangeExpenses, categories]);
 
   const filteredExpenses = useMemo(() => {
-    let list = filterCat === "ALL" ? initialExpenses : initialExpenses.filter((e) => e.category === filterCat);
+    let list = filterCat === "ALL" ? rangeExpenses : rangeExpenses.filter((e) => e.category === filterCat);
     if (onlyRecurring) list = list.filter((e) => e.isRecurring);
     return list;
-  }, [initialExpenses, filterCat, onlyRecurring]);
+  }, [rangeExpenses, filterCat, onlyRecurring]);
 
   function handleDelete(id: string) {
     if (!confirm("Remover esta despesa?")) return;
@@ -797,7 +823,7 @@ export function FinanceiroClient({ initialRevenues, initialExpenses, monthlyData
           </div>
 
           <div className="grid gap-5 xl:grid-cols-[1fr_320px]">
-            <ChartCard title="Receita × Despesas × Lucro" sub="Últimos 6 meses">
+            <ChartCard title="Receita × Despesas × Lucro" sub={RANGE_OPTIONS.find((r) => r.key === rangeKey)?.label}>
               <RevenueChart data={monthlyData} />
             </ChartCard>
 
@@ -807,7 +833,7 @@ export function FinanceiroClient({ initialRevenues, initialExpenses, monthlyData
                 : <EmptyState message="Nenhuma despesa registrada no período." />}
             </ChartCard>
 
-            <ChartCard title="Evolução do Lucro" sub="Últimos 6 meses">
+            <ChartCard title="Evolução do Lucro" sub={RANGE_OPTIONS.find((r) => r.key === rangeKey)?.label}>
               <ProfitAreaChart data={profitData} />
             </ChartCard>
 

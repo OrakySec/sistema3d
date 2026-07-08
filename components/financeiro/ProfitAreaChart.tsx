@@ -1,8 +1,9 @@
 "use client";
 
 import {
-  AreaChart,
+  ComposedChart,
   Area,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -16,21 +17,27 @@ interface ProfitAreaChartProps {
 
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
+  const lucro  = payload.find((p: any) => p.dataKey === "lucro");
+  const margem = payload.find((p: any) => p.dataKey === "margem");
   return (
     <div className="rounded-xl border border-border bg-surface px-4 py-3 shadow-lg text-xs">
       <p className="mb-2 font-semibold text-text-primary">{label}</p>
-      <div className="flex items-center gap-2 py-0.5">
-        <div className="h-2 w-2 rounded-full bg-success" />
-        <span className="text-text-muted">Lucro:</span>
-        <span className="font-semibold text-text-primary">
-          {Number(payload[0]?.value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-        </span>
-      </div>
-      <div className="flex items-center gap-2 py-0.5">
-        <div className="h-2 w-2 rounded-full bg-primary" />
-        <span className="text-text-muted">Margem:</span>
-        <span className="font-semibold text-text-primary">{payload[1]?.value}%</span>
-      </div>
+      {lucro && (
+        <div className="flex items-center gap-2 py-0.5">
+          <div className="h-2 w-2 rounded-full bg-success" />
+          <span className="text-text-muted">Lucro:</span>
+          <span className="font-semibold text-text-primary">
+            {Number(lucro.value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+          </span>
+        </div>
+      )}
+      {margem && (
+        <div className="flex items-center gap-2 py-0.5">
+          <div className="h-2 w-2 rounded-full bg-primary" />
+          <span className="text-text-muted">Margem:</span>
+          <span className="font-semibold text-text-primary">{Number(margem.value).toFixed(1)}%</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -38,7 +45,7 @@ function CustomTooltip({ active, payload, label }: any) {
 export function ProfitAreaChart({ data }: ProfitAreaChartProps) {
   return (
     <ResponsiveContainer width="100%" height={180}>
-      <AreaChart data={data} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+      <ComposedChart data={data} margin={{ top: 4, right: 48, left: 0, bottom: 0 }}>
         <defs>
           <linearGradient id="gradLucro" x1="0" y1="0" x2="0" y2="1">
             <stop offset="5%"  stopColor="#22C55E" stopOpacity={0.3} />
@@ -53,14 +60,25 @@ export function ProfitAreaChart({ data }: ProfitAreaChartProps) {
           tickLine={false}
         />
         <YAxis
+          yAxisId="left"
           tick={{ fontSize: 11, fill: "var(--color-text-muted)" }}
           axisLine={false}
           tickLine={false}
-          tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`}
+          tickFormatter={(v) => v >= 1000 ? `R$${(v / 1000).toFixed(0)}k` : `R$${v}`}
           width={48}
+        />
+        <YAxis
+          yAxisId="right"
+          orientation="right"
+          tick={{ fontSize: 11, fill: "var(--color-text-muted)" }}
+          axisLine={false}
+          tickLine={false}
+          tickFormatter={(v) => `${v}%`}
+          width={36}
         />
         <Tooltip content={<CustomTooltip />} cursor={{ stroke: "rgba(255,255,255,0.1)" }} />
         <Area
+          yAxisId="left"
           type="monotone"
           dataKey="lucro"
           stroke="#22C55E"
@@ -69,7 +87,17 @@ export function ProfitAreaChart({ data }: ProfitAreaChartProps) {
           dot={{ r: 3, fill: "#22C55E", strokeWidth: 0 }}
           activeDot={{ r: 5 }}
         />
-      </AreaChart>
+        <Line
+          yAxisId="right"
+          type="monotone"
+          dataKey="margem"
+          stroke="#F97316"
+          strokeWidth={2}
+          dot={{ r: 3, fill: "#F97316", strokeWidth: 0 }}
+          activeDot={{ r: 5 }}
+          strokeDasharray="4 2"
+        />
+      </ComposedChart>
     </ResponsiveContainer>
   );
 }

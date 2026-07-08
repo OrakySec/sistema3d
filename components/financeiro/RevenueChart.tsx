@@ -54,7 +54,7 @@ export function RevenueChart({ data }: RevenueChartProps) {
           tick={{ fontSize: 11, fill: "var(--color-text-muted)" }}
           axisLine={false}
           tickLine={false}
-          tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`}
+          tickFormatter={(v) => v >= 1000 ? `R$${(v / 1000).toFixed(0)}k` : `R$${v}`}
           width={52}
         />
         <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(255,255,255,0.03)" }} />

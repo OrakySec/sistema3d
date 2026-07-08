@@ -50,7 +50,6 @@ export async function updateCategory(key: string, formData: FormData) {
   const parsed = categorySchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
 
-  const isDefault = DEFAULT_EXPENSE_CATEGORIES.some((d) => d.key === key);
   const existing = await prisma.expenseCategoryConfig.findUnique({ where: { userId_key: { userId, key } } });
   const order = existing?.order ?? DEFAULT_EXPENSE_CATEGORIES.find((d) => d.key === key)?.order ?? 0;
 
@@ -60,7 +59,6 @@ export async function updateCategory(key: string, formData: FormData) {
     create: { userId, key, label: parsed.data.label, color: parsed.data.color, order },
   });
 
-  void isDefault;
   revalidatePath("/financeiro");
   return { ok: true };
 }
