@@ -22,6 +22,44 @@ import { RECURRING_FREQUENCY_LABELS, type RecurringFrequency } from "@/lib/recur
 
 const NEW_CATEGORY_VALUE = "__new__";
 
+// ─── Máscara de moeda BRL ─────────────────────────────────────
+
+function parseBRL(raw: string): number {
+  // Remove tudo exceto dígitos e vírgula; trata vírgula como separador decimal
+  const clean = raw.replace(/\./g, "").replace(",", ".");
+  const n = parseFloat(clean);
+  return isNaN(n) ? 0 : n;
+}
+
+function formatBRLMask(raw: string): string {
+  // Mantém só dígitos e uma vírgula
+  const digits = raw.replace(/[^\d,]/g, "");
+  return digits;
+}
+
+function CurrencyInput({
+  value,
+  onChange,
+  placeholder = "0,00",
+  className,
+}: {
+  value: string;
+  onChange: (raw: string) => void;
+  placeholder?: string;
+  className?: string;
+}) {
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      value={value}
+      placeholder={placeholder}
+      onChange={(e) => onChange(formatBRLMask(e.target.value))}
+      className={className}
+    />
+  );
+}
+
 // ─── Categorias ──────────────────────────────────────────────
 
 interface CategoryDef { key: string; label: string; color: string; order: number; isDefault: boolean; id?: string }
@@ -32,7 +70,6 @@ const expenseSchema = z.object({
   description:        z.string().min(2, "Descrição obrigatória"),
   category:            z.string().min(1, "Categoria obrigatória"),
   customCategory:      z.string().optional(),
-  amount:              z.coerce.number().positive("Valor obrigatório"),
   date:                z.string().min(1, "Data obrigatória"),
   notes:               z.string().optional(),
   isRecurring:         z.boolean().optional(),
@@ -82,6 +119,9 @@ function ExpenseDialog({ expense, categories, onClose }: { expense?: Expense; ca
   const [newCatLabel, setNewCatLabel] = useState("");
   const [newCatColor, setNewCatColor] = useState(CATEGORY_COLOR_PALETTE[0]);
   const [catError, setCatError] = useState<string | null>(null);
+  const [amountRaw, setAmountRaw] = useState(expense ? String(expense.amount).replace(".", ",") : "");
+  const [amountError, setAmountError] = useState<string | null>(null);
+
   const { register, handleSubmit, watch, formState: { errors } } = useForm<ExpenseForm>({
     resolver: zodResolver(expenseSchema) as Resolver<ExpenseForm>,
     defaultValues: expense
@@ -93,6 +133,10 @@ function ExpenseDialog({ expense, categories, onClose }: { expense?: Expense; ca
   const isRecurring      = watch("isRecurring");
 
   function onSubmit(data: ExpenseForm) {
+    const amount = parseBRL(amountRaw);
+    if (!amount || amount <= 0) { setAmountError("Informe um valor válido."); return; }
+    setAmountError(null);
+
     startTransition(async () => {
       let categoryKey = data.category;
 
@@ -109,6 +153,7 @@ function ExpenseDialog({ expense, categories, onClose }: { expense?: Expense; ca
 
       const fd = new FormData();
       Object.entries({ ...data, category: categoryKey }).forEach(([k, v]) => v !== undefined && fd.append(k, String(v)));
+      fd.append("amount", String(amount));
       if (expense) await updateExpense(expense.id, fd);
       else await createExpense(fd);
       onClose();
@@ -137,13 +182,12 @@ function ExpenseDialog({ expense, categories, onClose }: { expense?: Expense; ca
             </select>
           </FormField>
 
-          <FormField label="Valor (R$)" error={errors.amount?.message}>
+          <FormField label="Valor (R$)" error={amountError ?? undefined}>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-text-muted">R$</span>
-              <input
-                {...register("amount")}
-                type="number" min={0.01} step={0.01}
-                placeholder="0,00"
+              <CurrencyInput
+                value={amountRaw}
+                onChange={(v) => { setAmountRaw(v); setAmountError(null); }}
                 className={`${inputCls} pl-8`}
               />
             </div>
@@ -220,28 +264,34 @@ function ExpenseDialog({ expense, categories, onClose }: { expense?: Expense; ca
 // ─── Modal de venda ───────────────────────────────────────────
 
 const revenueSchema = z.object({
-  description:    z.string().min(2, "Descrição obrigatória"),
-  grossAmount:    z.coerce.number().positive("Valor obrigatório"),
-  productionCost: z.coerce.number().min(0, "Informe o custo (0 se não houver)"),
-  date:           z.string().min(1, "Data obrigatória"),
-  notes:          z.string().optional(),
+  description: z.string().min(2, "Descrição obrigatória"),
+  date:        z.string().min(1, "Data obrigatória"),
+  notes:       z.string().optional(),
 });
 type RevenueForm = z.infer<typeof revenueSchema>;
 
 function RevenueDialog({ onClose }: { onClose: () => void }) {
   const [pending, startTransition] = useTransition();
-  const { register, handleSubmit, watch, formState: { errors } } = useForm<RevenueForm>({
+  const [grossRaw, setGrossRaw]   = useState("");
+  const [costRaw, setCostRaw]     = useState("");
+  const [grossError, setGrossError] = useState<string | null>(null);
+
+  const { register, handleSubmit, formState: { errors } } = useForm<RevenueForm>({
     resolver: zodResolver(revenueSchema) as Resolver<RevenueForm>,
-    defaultValues: { date: new Date().toISOString().split("T")[0], productionCost: 0 },
+    defaultValues: { date: new Date().toISOString().split("T")[0] },
   });
 
-  const gross = watch("grossAmount") ?? 0;
-  const cost  = watch("productionCost") ?? 0;
-  const profit = Number(gross) - Number(cost);
+  const gross  = parseBRL(grossRaw);
+  const cost   = parseBRL(costRaw);
+  const profit = gross - cost;
 
   function onSubmit(data: RevenueForm) {
+    if (!gross || gross <= 0) { setGrossError("Informe um valor válido."); return; }
+    setGrossError(null);
     const fd = new FormData();
     Object.entries(data).forEach(([k, v]) => v !== undefined && fd.append(k, String(v)));
+    fd.append("grossAmount",    String(gross));
+    fd.append("productionCost", String(cost));
     startTransition(async () => {
       await createRevenue(fd);
       onClose();
@@ -261,17 +311,17 @@ function RevenueDialog({ onClose }: { onClose: () => void }) {
             <input {...register("description")} placeholder="Ex: Suporte de celular personalizado" className={inputCls} />
           </FormField>
 
-          <FormField label="Valor cobrado (R$)" error={errors.grossAmount?.message}>
+          <FormField label="Valor cobrado (R$)" error={grossError ?? undefined}>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-text-muted">R$</span>
-              <input {...register("grossAmount")} type="number" min={0.01} step={0.01} placeholder="0,00" className={`${inputCls} pl-8`} />
+              <CurrencyInput value={grossRaw} onChange={(v) => { setGrossRaw(v); setGrossError(null); }} className={`${inputCls} pl-8`} />
             </div>
           </FormField>
 
-          <FormField label="Custo de produção (R$)" error={errors.productionCost?.message}>
+          <FormField label="Custo de produção (R$)">
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-text-muted">R$</span>
-              <input {...register("productionCost")} type="number" min={0} step={0.01} placeholder="0,00" className={`${inputCls} pl-8`} />
+              <CurrencyInput value={costRaw} onChange={setCostRaw} className={`${inputCls} pl-8`} />
             </div>
           </FormField>
 
