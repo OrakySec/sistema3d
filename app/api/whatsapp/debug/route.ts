@@ -46,5 +46,24 @@ export async function GET() {
     result.connect_error = String(e);
   }
 
+  // Testa criação de instância (dry-run — sem salvar no banco)
+  const testName = `debug_test_${Date.now()}`;
+  try {
+    const r3 = await fetch(`${EVO_URL}/instance/create`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json", apikey: EVO_KEY },
+      body: JSON.stringify({ instanceName: testName, integration: "WHATSAPP-BAILEYS", qrcode: true }),
+    });
+    result.create_status = r3.status;
+    result.create_body   = await r3.json();
+    // Limpa instância de teste
+    await fetch(`${EVO_URL}/instance/delete/${testName}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json", apikey: EVO_KEY },
+    }).catch(() => {});
+  } catch (e) {
+    result.create_error = String(e);
+  }
+
   return NextResponse.json(result);
 }
