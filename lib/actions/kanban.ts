@@ -193,7 +193,7 @@ export async function completePrint(printLogId: string, filamentUsed?: number) {
 
   const printLog = await prisma.printLog.findUnique({
     where:   { id: printLogId },
-    include: { card: true },
+    include: { card: { include: { quote: true } } },
   });
   if (!printLog) return { error: "Impressão não encontrada." };
 
@@ -231,14 +231,15 @@ export async function completePrint(printLogId: string, filamentUsed?: number) {
     );
   }
 
-  // Deduzir filamento do estoque
-  if (printLog.filamentId && filamentUsed && filamentUsed > 0) {
+  // Deduzir filamento do estoque (usa filamentUsed passado, ou filamentGrams do orçamento)
+  const gramsToDeduct = filamentUsed ?? printLog.card?.quote?.filamentGrams ?? 0;
+  if (printLog.filamentId && gramsToDeduct > 0) {
     const filament = await prisma.filament.findUnique({ where: { id: printLog.filamentId } });
     if (filament) {
       updates.push(
         prisma.filament.update({
           where: { id: printLog.filamentId },
-          data:  { currentGrams: Math.max(0, filament.currentGrams - filamentUsed) },
+          data:  { currentGrams: Math.max(0, filament.currentGrams - gramsToDeduct) },
         })
       );
     }
