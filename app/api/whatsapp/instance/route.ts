@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth }         from "@/auth";
 import { prisma }       from "@/lib/prisma";
+import QRCode           from "qrcode";
 
 const EVO_URL = process.env.EVOLUTION_API_URL!;
 const EVO_KEY = process.env.EVOLUTION_API_KEY!;
@@ -86,21 +87,30 @@ export async function POST() {
       data:  { evolutionInstance: instanceName, evolutionConnected: false },
     });
 
+    async function extractQr(data: Record<string, unknown>): Promise<string | null> {
+      let base64 = (data?.base64 ?? (data?.qrcode as Record<string, unknown>)?.base64 ?? null) as string | null;
+      if (!base64) {
+        const code = (data?.code ?? (data?.qrcode as Record<string, unknown>)?.code ?? null) as string | null;
+        if (code && code.length > 10) base64 = await QRCode.toDataURL(code, { width: 256, margin: 2 });
+      }
+      return base64;
+    }
+
     // Tenta pegar QR da resposta de criação
-    let qrcode = createData?.qrcode?.base64 ?? createData?.base64 ?? null;
+    let qrcode = await extractQr(createData as Record<string, unknown>);
 
     // Se não veio, aguarda e busca via /connect
     if (!qrcode) {
       await sleep(2000);
-      for (let i = 0; i < 3; i++) {
-        if (i > 0) await sleep(1500);
+      for (let i = 0; i < 5; i++) {
+        if (i > 0) await sleep(2000);
         try {
           const qrRes  = await fetch(`${EVO_URL}/instance/connect/${instanceName}`, {
             headers: evoHeaders(),
           });
           const qrData = await qrRes.json();
-          console.log(`[whatsapp/instance POST] connect attempt ${i + 1}:`, JSON.stringify(qrData).slice(0, 500));
-          qrcode = qrData?.base64 ?? qrData?.qrcode?.base64 ?? null;
+          console.log(`[whatsapp/instance POST] connect attempt ${i + 1}:`, JSON.stringify(qrData).slice(0, 300));
+          qrcode = await extractQr(qrData as Record<string, unknown>);
           if (qrcode) break;
         } catch {}
       }

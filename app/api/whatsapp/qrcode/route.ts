@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth }         from "@/auth";
 import { prisma }       from "@/lib/prisma";
+import QRCode           from "qrcode";
 
 const EVO_URL = process.env.EVOLUTION_API_URL!;
 const EVO_KEY = process.env.EVOLUTION_API_KEY!;
@@ -11,6 +12,10 @@ function evoHeaders() {
 
 async function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
+}
+
+async function codeToBase64(code: string): Promise<string> {
+  return QRCode.toDataURL(code, { width: 256, margin: 2 });
 }
 
 // GET — busca QR Code com retry automático
@@ -27,12 +32,11 @@ export async function GET() {
     return NextResponse.json({ error: "Instância não criada" }, { status: 404 });
   }
 
-  // Tenta até 3 vezes com intervalo de 1.5s (a Evolution API pode demorar pra gerar o QR)
-  for (let attempt = 0; attempt < 3; attempt++) {
-    if (attempt > 0) await sleep(1500);
+  for (let attempt = 0; attempt < 5; attempt++) {
+    if (attempt > 0) await sleep(2000);
 
     try {
-      const res  = await fetch(`${EVO_URL}/instance/connect/${user.evolutionInstance}`, {
+      const res = await fetch(`${EVO_URL}/instance/connect/${user.evolutionInstance}`, {
         headers: evoHeaders(),
       });
 
@@ -42,22 +46,35 @@ export async function GET() {
       }
 
       const data = await res.json();
-      console.log(`[qrcode] attempt ${attempt + 1} full response:`, JSON.stringify(data).slice(0, 500));
+      console.log(`[qrcode] attempt ${attempt + 1} response:`, JSON.stringify(data).slice(0, 300));
 
-      const qrcode = data?.base64 ?? data?.qrcode?.base64 ?? data?.code ?? null;
-      const state  = data?.instance?.state ?? data?.state ?? null;
-
-      if (qrcode) {
-        return NextResponse.json({ qrcode, state });
-      }
+      const state = data?.instance?.state ?? data?.state ?? null;
 
       if (state === "open") {
         return NextResponse.json({ qrcode: null, state: "open" });
+      }
+
+      // Tenta pegar base64 diretamente
+      let qrcode: string | null = data?.base64 ?? data?.qrcode?.base64 ?? null;
+
+      // Se não veio base64 mas veio o código texto, converte aqui no servidor
+      if (!qrcode) {
+        const code = data?.code ?? data?.qrcode?.code ?? null;
+        if (code && typeof code === "string" && code.length > 10) {
+          qrcode = await codeToBase64(code);
+        }
+      }
+
+      if (qrcode) {
+        return NextResponse.json({ qrcode, state });
       }
     } catch (err) {
       console.error(`[qrcode] attempt ${attempt + 1} error:`, err);
     }
   }
 
-  return NextResponse.json({ error: "QR Code não disponível após 3 tentativas. Verifique os logs do servidor.", qrcode: null, debug: "Veja os logs do container Next.js com: docker logs sistema3d_app --tail=30" }, { status: 200 });
+  return NextResponse.json({
+    error:  "QR Code não disponível. A Evolution API pode estar iniciando. Aguarde 10 segundos e tente novamente.",
+    qrcode: null,
+  }, { status: 200 });
 }

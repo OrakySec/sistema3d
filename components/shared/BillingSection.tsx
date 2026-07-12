@@ -9,6 +9,7 @@ import {
 import { PLAN_LIMITS, PLAN_NAMES, PLAN_PRICES, type Plan } from "@/lib/plans";
 
 type SubscriptionStatus = "TRIAL" | "ACTIVE" | "PAST_DUE" | "CANCELED" | "UNPAID";
+type BillingInterval = "monthly" | "annual";
 
 interface Props {
   plan:               Plan;
@@ -33,16 +34,22 @@ interface PlanFeature {
 }
 
 const FEATURES: PlanFeature[] = [
-  { icon: FileText,     label: "Orçamentos/mês",        pro: "Ilimitados",  studio: "Ilimitados"  },
-  { icon: Users,        label: "Clientes cadastrados",   pro: "20",          studio: "Ilimitados"  },
-  { icon: Printer,      label: "Impressoras",            pro: "3",           studio: "Ilimitadas"  },
-  { icon: Package,      label: "Filamentos no estoque",  pro: "10",          studio: "Ilimitados"  },
-  { icon: FileText,     label: "Versões por orçamento",  pro: "2",           studio: "Ilimitadas"  },
-  { icon: MessageCircle,label: "WhatsApp automático",    pro: false,         studio: true          },
-  { icon: DollarSign,   label: "Link de pagamento",      pro: false,         studio: true          },
-  { icon: Image,        label: "Portfólio público",      pro: false,         studio: true          },
-  { icon: Infinity,     label: "Tudo ilimitado",         pro: false,         studio: true          },
+  { icon: FileText,      label: "Orçamentos/mês",       pro: "Ilimitados", studio: "Ilimitados" },
+  { icon: Users,         label: "Clientes cadastrados",  pro: "20",         studio: "Ilimitados" },
+  { icon: Printer,       label: "Impressoras",           pro: "3",          studio: "Ilimitadas" },
+  { icon: Package,       label: "Filamentos no estoque", pro: "10",         studio: "Ilimitados" },
+  { icon: FileText,      label: "Versões por orçamento", pro: "2",          studio: "Ilimitadas" },
+  { icon: MessageCircle, label: "WhatsApp automático",   pro: false,        studio: true         },
+  { icon: DollarSign,    label: "Link de pagamento",     pro: false,        studio: true         },
+  { icon: Image,         label: "Portfólio público",     pro: false,        studio: true         },
+  { icon: Infinity,      label: "Tudo ilimitado",        pro: false,        studio: true         },
 ];
+
+// Preços mensais com desconto de 40% no anual
+const PRICES = {
+  PRO:    { monthly: 49.90, annual: 350 },
+  STUDIO: { monthly: 99.90, annual: 710 },
+};
 
 function FeatureValue({ value }: { value: string | boolean }) {
   if (value === false) return <X className="h-4 w-4 text-text-muted" />;
@@ -50,19 +57,26 @@ function FeatureValue({ value }: { value: string | boolean }) {
   return <span className="text-sm font-semibold text-text-primary">{value}</span>;
 }
 
+function fmt(v: number) {
+  return v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 export function BillingSection({ plan, subscriptionStatus, currentPeriodEnd, hasStripeId }: Props) {
-  const [loading, setLoading] = useState<"PRO" | "STUDIO" | "portal" | null>(null);
+  const [loading, setLoading]   = useState<"PRO" | "PRO_ANNUAL" | "STUDIO" | "STUDIO_ANNUAL" | "portal" | null>(null);
+  const [interval, setInterval] = useState<BillingInterval>("monthly");
 
   const limits    = PLAN_LIMITS[plan];
   const status    = STATUS_LABELS[subscriptionStatus];
   const periodEnd = currentPeriodEnd ? new Date(currentPeriodEnd).toLocaleDateString("pt-BR") : null;
+  const isAnnual  = interval === "annual";
 
-  async function handleUpgrade(targetPlan: "PRO" | "STUDIO") {
-    setLoading(targetPlan);
+  async function handleUpgrade(base: "PRO" | "STUDIO") {
+    const planKey = isAnnual ? `${base}_ANNUAL` as const : base;
+    setLoading(planKey);
     const res  = await fetch("/api/billing/checkout", {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ plan: targetPlan }),
+      body:    JSON.stringify({ plan: planKey }),
     });
     const data = await res.json();
     if (data.url) window.location.href = data.url;
@@ -75,6 +89,40 @@ export function BillingSection({ plan, subscriptionStatus, currentPeriodEnd, has
     const data = await res.json();
     if (data.url) window.location.href = data.url;
     setLoading(null);
+  }
+
+  function PriceDisplay({ base }: { base: "PRO" | "STUDIO" }) {
+    const p = PRICES[base];
+    if (isAnnual) {
+      const monthly = p.annual / 12;
+      return (
+        <div className="mt-1">
+          <div className="flex items-baseline gap-1.5">
+            <span className="font-display text-2xl font-bold text-text-primary">R$ {fmt(monthly)}</span>
+            <span className="text-xs text-text-muted">/mês</span>
+          </div>
+          <p className="text-xs text-text-muted mt-0.5">R$ {fmt(p.annual)}/ano · <span className="text-success font-medium">40% off</span></p>
+        </div>
+      );
+    }
+    if (!hasStripeId) {
+      const discounted = p.monthly * 0.10;
+      return (
+        <div className="mt-1">
+          <div className="flex items-baseline gap-1.5">
+            <span className="font-display text-2xl font-bold text-primary">R$ {fmt(discounted)}</span>
+            <span className="text-xs text-text-muted line-through">R$ {fmt(p.monthly)}</span>
+            <span className="text-xs text-text-muted">no 1º mês</span>
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div className="mt-1 flex items-baseline gap-1.5">
+        <span className="font-display text-2xl font-bold text-text-primary">R$ {fmt(p.monthly)}</span>
+        <span className="text-xs text-text-muted">/mês</span>
+      </div>
+    );
   }
 
   return (
@@ -138,16 +186,41 @@ export function BillingSection({ plan, subscriptionStatus, currentPeriodEnd, has
       {/* ── Cards de upgrade ───────────────────────────────── */}
       {plan !== "STUDIO" && (
         <div>
-          <div className="mb-3 flex items-center gap-2">
-            <Zap className="h-4 w-4 text-primary" />
-            <p className="font-display text-sm font-semibold text-text-primary">
-              Escolha seu plano
-            </p>
-            {!hasStripeId && (
-              <span className="ml-auto rounded-full border border-primary/40 bg-primary-subtle px-2.5 py-0.5 text-xs font-semibold text-primary">
-                🎉 90% OFF no 1º mês
-              </span>
-            )}
+          {/* Header com toggle */}
+          <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <Zap className="h-4 w-4 text-primary" />
+              <p className="font-display text-sm font-semibold text-text-primary">Escolha seu plano</p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              {!hasStripeId && !isAnnual && (
+                <span className="rounded-full border border-primary/40 bg-primary-subtle px-2.5 py-0.5 text-xs font-semibold text-primary">
+                  🎉 90% OFF no 1º mês
+                </span>
+              )}
+              {isAnnual && (
+                <span className="rounded-full border border-success/40 bg-success-subtle px-2.5 py-0.5 text-xs font-semibold text-success">
+                  40% OFF no anual
+                </span>
+              )}
+              {/* Toggle mensal / anual */}
+              <div className="flex items-center gap-1 rounded-lg border border-border bg-background p-1">
+                {(["monthly", "annual"] as const).map((opt) => (
+                  <button
+                    key={opt}
+                    onClick={() => setInterval(opt)}
+                    className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                      interval === opt
+                        ? "bg-primary text-white"
+                        : "text-text-secondary hover:text-text-primary"
+                    }`}
+                  >
+                    {opt === "monthly" ? "Mensal" : "Anual"}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -157,23 +230,9 @@ export function BillingSection({ plan, subscriptionStatus, currentPeriodEnd, has
               <div className="flex flex-col rounded-xl border border-border bg-surface overflow-hidden">
                 <div className="px-5 pt-5 pb-4 border-b border-border">
                   <p className="font-display text-base font-bold text-text-primary">Pro</p>
-                  <div className="mt-1 flex items-baseline gap-1.5">
-                    {!hasStripeId ? (
-                      <>
-                        <span className="font-display text-2xl font-bold text-primary">R$ 4,90</span>
-                        <span className="text-xs text-text-muted line-through">R$ 49</span>
-                        <span className="text-xs text-text-muted">no 1º mês</span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="font-display text-2xl font-bold text-text-primary">R$ 49</span>
-                        <span className="text-xs text-text-muted">/mês</span>
-                      </>
-                    )}
-                  </div>
+                  <PriceDisplay base="PRO" />
                   <p className="mt-1 text-xs text-text-secondary">Para estúdios em crescimento</p>
                 </div>
-
                 <ul className="flex flex-col gap-2.5 px-5 py-4 flex-1">
                   {FEATURES.map(({ icon: Icon, label, pro }) => (
                     pro !== false && (
@@ -185,14 +244,13 @@ export function BillingSection({ plan, subscriptionStatus, currentPeriodEnd, has
                     )
                   ))}
                 </ul>
-
                 <div className="px-5 pb-5">
                   <button
                     onClick={() => handleUpgrade("PRO")}
                     disabled={!!loading}
                     className="flex w-full items-center justify-center gap-2 rounded-lg border border-primary/40 bg-primary-subtle py-2.5 text-sm font-semibold text-primary hover:bg-primary hover:text-white transition-all disabled:opacity-60"
                   >
-                    {loading === "PRO"
+                    {loading === "PRO" || loading === "PRO_ANNUAL"
                       ? <Loader2 className="h-4 w-4 animate-spin" />
                       : <><Zap className="h-4 w-4" /> Assinar Pro</>}
                   </button>
@@ -212,20 +270,7 @@ export function BillingSection({ plan, subscriptionStatus, currentPeriodEnd, has
 
               <div className="px-5 pt-5 pb-4 border-b border-border">
                 <p className="font-display text-base font-bold text-text-primary">Estúdio</p>
-                <div className="mt-1 flex items-baseline gap-1.5">
-                  {!hasStripeId ? (
-                    <>
-                      <span className="font-display text-2xl font-bold text-primary">R$ 9,90</span>
-                      <span className="text-xs text-text-muted line-through">R$ 99</span>
-                      <span className="text-xs text-text-muted">no 1º mês</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="font-display text-2xl font-bold text-text-primary">R$ 99</span>
-                      <span className="text-xs text-text-muted">/mês</span>
-                    </>
-                  )}
-                </div>
+                <PriceDisplay base="STUDIO" />
                 <p className="mt-1 text-xs text-text-secondary">Tudo ilimitado para grandes operações</p>
               </div>
 
@@ -245,7 +290,7 @@ export function BillingSection({ plan, subscriptionStatus, currentPeriodEnd, has
                   disabled={!!loading}
                   className="flex w-full items-center justify-center gap-2 rounded-lg gradient-primary py-2.5 text-sm font-semibold text-white hover:opacity-90 transition-opacity disabled:opacity-60"
                 >
-                  {loading === "STUDIO"
+                  {loading === "STUDIO" || loading === "STUDIO_ANNUAL"
                     ? <Loader2 className="h-4 w-4 animate-spin" />
                     : <><Zap className="h-4 w-4" /> Assinar Estúdio</>}
                 </button>
