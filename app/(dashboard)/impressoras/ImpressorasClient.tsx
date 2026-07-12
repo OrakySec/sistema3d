@@ -56,7 +56,12 @@ function PrinterDialog({ printer, onClose, onLimitExceeded }: {
   const { register, handleSubmit, watch, formState: { errors } } = useForm<PrinterForm>({
     resolver: zodResolver(printerSchema) as unknown as Resolver<PrinterForm>,
     defaultValues: printer
-      ? { ...printer, model: printer.model ?? undefined }
+      ? {
+          ...printer,
+          model:            printer.model            ?? undefined,
+          lcdLifetimeHours: printer.lcdLifetimeHours ?? undefined,
+          lcdPrice:         printer.lcdPrice         ?? undefined,
+        }
       : { printerType: "FDM" as const, estimatedHours: 5000, monthlyMaintenance: 0 },
   });
   const watchedType = watch("printerType");
