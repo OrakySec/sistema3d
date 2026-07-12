@@ -20,7 +20,8 @@ export default async function ConfiguracoesPage() {
       select: {
         businessName: true, whatsapp: true, city: true,
         infinitypayHandle: true, infinitypayEnabled: true, evolutionConnected: true,
-        plan: true, subscriptionStatus: true, currentPeriodEnd: true, stripeCustomerId: true,
+        plan: true, subscriptionStatus: true, currentPeriodEnd: true,
+        stripeCustomerId: true, stripeSubscriptionId: true,
       },
     }),
     prisma.userSettings.findUnique({ where: { userId } }),
@@ -37,7 +38,7 @@ export default async function ConfiguracoesPage() {
       plan={user?.plan ?? "FREE"}
       subscriptionStatus={user?.subscriptionStatus ?? "TRIAL"}
       currentPeriodEnd={user?.currentPeriodEnd?.toISOString() ?? null}
-      hasStripeId={!!user?.stripeCustomerId}
+      hasStripeId={!!user?.stripeSubscriptionId}
       usageCounts={{ clients: clientsCount, printers: printersCount, filaments: filamentsCount, quotesThisMonth: quotesCount }}
       initialUser={{
         businessName: user?.businessName ?? "",
