@@ -5,8 +5,10 @@ import type { Plan } from "@/lib/plans";
 import type Stripe from "stripe";
 
 const PRICE_TO_PLAN: Record<string, Plan> = {
-  [process.env.STRIPE_PRICE_PRO    ?? ""]: "PRO",
-  [process.env.STRIPE_PRICE_STUDIO ?? ""]: "STUDIO",
+  [process.env.STRIPE_PRICE_PRO           ?? ""]: "PRO",
+  [process.env.STRIPE_PRICE_PRO_ANNUAL    ?? ""]: "PRO",
+  [process.env.STRIPE_PRICE_STUDIO        ?? ""]: "STUDIO",
+  [process.env.STRIPE_PRICE_STUDIO_ANNUAL ?? ""]: "STUDIO",
 };
 
 export async function POST(req: Request) {

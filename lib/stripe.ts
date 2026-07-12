@@ -17,8 +17,11 @@ export const stripe = new Proxy({} as Stripe, {
 });
 
 export const STRIPE_PRICES = {
-  PRO:    process.env.STRIPE_PRICE_PRO    ?? "",
-  STUDIO: process.env.STRIPE_PRICE_STUDIO ?? "",
+  PRO:           process.env.STRIPE_PRICE_PRO           ?? "",
+  PRO_ANNUAL:    process.env.STRIPE_PRICE_PRO_ANNUAL    ?? "",
+  STUDIO:        process.env.STRIPE_PRICE_STUDIO        ?? "",
+  STUDIO_ANNUAL: process.env.STRIPE_PRICE_STUDIO_ANNUAL ?? "",
 };
 
-export const STRIPE_PROMO = process.env.STRIPE_PROMO_LAUNCH;
+// Cupom de lançamento só para planos mensais
+export const STRIPE_PROMO_MONTHLY = process.env.STRIPE_PROMO_LAUNCH;
