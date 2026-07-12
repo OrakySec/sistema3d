@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { ClientesClient } from "./ClientesClient";
+import { effectivePlan } from "@/lib/plans";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Clientes" };
@@ -17,13 +18,13 @@ export default async function ClientesPage() {
       include: { _count: { select: { quotes: true } } },
       orderBy: { createdAt: "desc" },
     }),
-    prisma.user.findUnique({ where: { id: userId }, select: { plan: true, stripeCustomerId: true } }),
+    prisma.user.findUnique({ where: { id: userId }, select: { plan: true, subscriptionStatus: true, stripeCustomerId: true } }),
   ]);
 
   return (
     <ClientesClient
       initialClients={clients}
-      plan={user?.plan ?? "FREE"}
+      plan={effectivePlan(user?.plan ?? "FREE", user?.subscriptionStatus ?? null)}
       isFirstSubscriber={!user?.stripeCustomerId}
     />
   );

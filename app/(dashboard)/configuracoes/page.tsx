@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { ConfiguracoesClient } from "./ConfiguracoesClient";
+import { effectivePlan } from "@/lib/plans";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Configurações" };
@@ -35,7 +36,7 @@ export default async function ConfiguracoesPage() {
     <ConfiguracoesClient
       whatsappConnected={!!user?.evolutionConnected}
       infinitypayHandle={user?.infinitypayHandle ?? undefined}
-      plan={user?.plan ?? "FREE"}
+      plan={effectivePlan(user?.plan ?? "FREE", user?.subscriptionStatus ?? null)}
       subscriptionStatus={user?.subscriptionStatus ?? "TRIAL"}
       currentPeriodEnd={user?.currentPeriodEnd?.toISOString() ?? null}
       hasStripeId={!!user?.stripeSubscriptionId}

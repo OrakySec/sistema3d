@@ -58,6 +58,14 @@ export const PLAN_PRICES: Record<Plan, string> = {
 
 export type LimitKey = "quotesPerMonth" | "clients" | "printers" | "quoteVersions" | "filaments";
 
+const INACTIVE_STATUSES = new Set(["PAST_DUE", "CANCELED", "UNPAID"]);
+
+/** Retorna FREE se a assinatura não está ativa, senão retorna o plano real. */
+export function effectivePlan(plan: Plan, subscriptionStatus: string | null | undefined): Plan {
+  if (!subscriptionStatus || INACTIVE_STATUSES.has(subscriptionStatus)) return "FREE";
+  return plan;
+}
+
 export const LIMIT_LABELS: Record<LimitKey, string> = {
   quotesPerMonth: "orçamentos por mês",
   clients:        "clientes cadastrados",

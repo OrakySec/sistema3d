@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { Calculator } from "./Calculator";
+import { effectivePlan } from "@/lib/plans";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Novo Orçamento" };
@@ -31,7 +32,7 @@ export default async function NovoOrcamentoPage() {
       where:  { userId },
       select: { energyCostKwh: true, defaultProfitMargin: true, paintingHourlyRate: true, quoteExpirationDays: true },
     }),
-    prisma.user.findUnique({ where: { id: userId }, select: { plan: true, stripeCustomerId: true } }),
+    prisma.user.findUnique({ where: { id: userId }, select: { plan: true, subscriptionStatus: true, stripeCustomerId: true } }),
   ]);
 
   return (
@@ -39,7 +40,7 @@ export default async function NovoOrcamentoPage() {
       printers={printers}
       filaments={filaments}
       clients={clients}
-      plan={user?.plan ?? "FREE"}
+      plan={effectivePlan(user?.plan ?? "FREE", user?.subscriptionStatus ?? null)}
       isFirstSubscriber={!user?.stripeCustomerId}
       settings={{
         energyCostKwh:       settings?.energyCostKwh       ?? 0.75,

@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect, notFound } from "next/navigation";
 import { Calculator } from "../../novo/Calculator";
+import { effectivePlan } from "@/lib/plans";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Editar Orçamento" };
@@ -36,7 +37,7 @@ export default async function EditarOrcamentoPage({ params }: { params: Promise<
       where:  { userId },
       select: { energyCostKwh: true, defaultProfitMargin: true, paintingHourlyRate: true, quoteExpirationDays: true },
     }),
-    prisma.user.findUnique({ where: { id: userId }, select: { plan: true, stripeCustomerId: true } }),
+    prisma.user.findUnique({ where: { id: userId }, select: { plan: true, subscriptionStatus: true, stripeCustomerId: true } }),
   ]);
 
   if (!quote) notFound();
@@ -50,7 +51,7 @@ export default async function EditarOrcamentoPage({ params }: { params: Promise<
       printers={printers}
       filaments={filaments}
       clients={clients}
-      plan={user?.plan ?? "FREE"}
+      plan={effectivePlan(user?.plan ?? "FREE", user?.subscriptionStatus ?? null)}
       isFirstSubscriber={!user?.stripeCustomerId}
       settings={{
         energyCostKwh:       settings?.energyCostKwh       ?? 0.75,
