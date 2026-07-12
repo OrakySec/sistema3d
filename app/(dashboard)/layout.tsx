@@ -2,6 +2,7 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { PastDueBanner } from "@/components/shared/PastDueBanner";
+import { SupportButton } from "@/components/shared/SupportButton";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import type { Metadata } from "next";
@@ -44,6 +45,7 @@ export default async function DashboardLayout({
 
       {/* Bottom nav — só mobile */}
       <BottomNav />
+      <SupportButton />
     </div>
   );
 }
