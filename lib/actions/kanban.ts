@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { sendWhatsAppMessage, normalizePhone, interpolate, isSilentHour } from "@/lib/whatsapp";
 
 type KanbanColumn = "WAITING" | "APPROVED" | "PRINTING" | "POST_PROD" | "READY" | "DELIVERED" | "CANCELLED";
 type PrintStatus  = "QUEUED" | "STARTED" | "PAUSED" | "RESUMED" | "CANCELLED" | "COMPLETED";
@@ -82,7 +83,10 @@ export async function startPrint(cardId: string) {
 export async function moveKanbanCard(cardId: string, toColumn: KanbanColumn) {
   const userId = await getUserId();
 
-  const card = await prisma.kanbanCard.findFirst({ where: { id: cardId, userId } });
+  const card = await prisma.kanbanCard.findFirst({
+    where:   { id: cardId, userId },
+    include: { quote: { include: { client: true } } },
+  });
   if (!card) return { error: "Card não encontrado." };
 
   await prisma.$transaction([
@@ -94,6 +98,68 @@ export async function moveKanbanCard(cardId: string, toColumn: KanbanColumn) {
       data: { cardId, fromColumn: card.column, toColumn },
     }),
   ]);
+
+  // Dispara automações WhatsApp quando entregue
+  if (toColumn === "DELIVERED") {
+    const [settings, user] = await Promise.all([
+      prisma.userSettings.findUnique({ where: { userId } }),
+      prisma.user.findUnique({ where: { id: userId }, select: { evolutionInstance: true } }),
+    ]);
+
+    const clientPhone = card.quote?.client?.whatsapp ?? null;
+    const clientName  = card.quote?.client?.name ?? "cliente";
+
+    if (
+      settings?.whatsappAutoEnabled &&
+      user?.evolutionInstance &&
+      clientPhone &&
+      normalizePhone(clientPhone)
+    ) {
+      const silent = settings.silentHoursEnabled
+        ? isSilentHour(settings.silentHoursStart, settings.silentHoursEnd)
+        : false;
+
+      if (!silent) {
+        const vars = { nome: clientName };
+
+        // Follow-up 7 dias — agenda via setTimeout (fire-and-forget; em prod usar cron)
+        if (settings.followupEnabled && settings.followup7DaysEnabled && settings.followup7DaysMessage) {
+          const delay7 = 7 * 24 * 60 * 60 * 1000;
+          setTimeout(() => {
+            sendWhatsAppMessage({
+              instanceName: user.evolutionInstance!,
+              phone:        clientPhone,
+              message:      interpolate(settings.followup7DaysMessage!, vars),
+            });
+          }, delay7);
+        }
+
+        // Follow-up 30 dias
+        if (settings.followupEnabled && settings.followup30DaysEnabled && settings.followup30DaysMessage) {
+          const delay30 = 30 * 24 * 60 * 60 * 1000;
+          setTimeout(() => {
+            sendWhatsAppMessage({
+              instanceName: user.evolutionInstance!,
+              phone:        clientPhone,
+              message:      interpolate(settings.followup30DaysMessage!, vars),
+            });
+          }, delay30);
+        }
+
+        // NPS
+        if (settings.npsEnabled && settings.npsMessage) {
+          const delayNps = (settings.npsDaysAfterDelivery ?? 7) * 24 * 60 * 60 * 1000;
+          setTimeout(() => {
+            sendWhatsAppMessage({
+              instanceName: user.evolutionInstance!,
+              phone:        clientPhone,
+              message:      interpolate(settings.npsMessage!, vars),
+            });
+          }, delayNps);
+        }
+      }
+    }
+  }
 
   revalidatePath("/producao");
 }
