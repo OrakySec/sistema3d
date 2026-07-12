@@ -199,10 +199,7 @@ export async function completePrint(printLogId: string, filamentUsed?: number) {
 
   const now = new Date();
 
-  // Horas reais de impressão: usa o tempo medido desde startedAt, ou estimatedHours como fallback
-  const hoursUsed = printLog.startedAt
-    ? (now.getTime() - new Date(printLog.startedAt).getTime()) / 3_600_000
-    : (printLog.estimatedHours ?? 0);
+  const hoursUsed = printLog.estimatedHours ?? 0;
 
   const updates: Promise<unknown>[] = [
     prisma.printLog.update({
