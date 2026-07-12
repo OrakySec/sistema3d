@@ -33,11 +33,15 @@ const settingsSchema = z.object({
   silentHoursEnd:           z.string().optional(),
   autoReplyEnabled:         z.coerce.boolean().optional(),
   autoReplyMessage:         z.string().optional(),
+  quoteReminderMessage:     z.string().optional(),
   followupEnabled:          z.coerce.boolean().optional(),
   followup7DaysEnabled:     z.coerce.boolean().optional(),
+  followup7DaysMessage:     z.string().optional(),
   followup30DaysEnabled:    z.coerce.boolean().optional(),
+  followup30DaysMessage:    z.string().optional(),
   npsEnabled:               z.coerce.boolean().optional(),
   npsDaysAfterDelivery:     z.coerce.number().min(1).optional(),
+  npsMessage:               z.string().optional(),
 
   // Estoque
   autoDeductStock:      z.coerce.boolean().optional(),

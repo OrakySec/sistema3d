@@ -221,11 +221,15 @@ model UserSettings {
   silentHoursEnd               String  @default("08:00")
   autoReplyEnabled             Boolean @default(false)
   autoReplyMessage             String? @db.Text
+  quoteReminderMessage         String? @db.Text
   followupEnabled              Boolean @default(false)
   followup7DaysEnabled         Boolean @default(true)
+  followup7DaysMessage         String? @db.Text
   followup30DaysEnabled        Boolean @default(true)
+  followup30DaysMessage        String? @db.Text
   npsEnabled                   Boolean @default(false)
   npsDaysAfterDelivery         Int     @default(7)
+  npsMessage                   String? @db.Text
   viewTrackingEnabled          Boolean @default(true)
   portfolioEnabled             Boolean @default(true)
   portfolioLeadFormEnabled     Boolean @default(false)

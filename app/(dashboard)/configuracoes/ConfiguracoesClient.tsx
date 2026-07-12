@@ -41,11 +41,15 @@ interface SettingsData {
   silentHoursEnd: string;
   autoReplyEnabled: boolean;
   autoReplyMessage: string;
+  quoteReminderMessage: string;
   followupEnabled: boolean;
   followup7DaysEnabled: boolean;
+  followup7DaysMessage: string;
   followup30DaysEnabled: boolean;
+  followup30DaysMessage: string;
   npsEnabled: boolean;
   npsDaysAfterDelivery: number;
+  npsMessage: string;
   autoDeductStock: boolean;
   lowStockAlertEnabled: boolean;
   portfolioEnabled: boolean;
@@ -73,6 +77,25 @@ interface Props {
 }
 
 // ─── Componentes auxiliares ───────────────────────────────────
+
+function MsgField({ value, onChange, placeholder, vars }: {
+  value: string; onChange: (v: string) => void; placeholder: string; vars: string[];
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <textarea
+        rows={3}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+      />
+      <p className="text-xs text-text-muted">
+        Variáveis: {vars.map((v) => <code key={v} className="mr-1 text-primary">{v}</code>)}
+      </p>
+    </div>
+  );
+}
 
 type TabId = "perfil" | "custos" | "orcamentos" | "whatsapp" | "estoque" | "portfolio" | "integracoes" | "assinatura";
 
@@ -472,6 +495,23 @@ export function ConfiguracoesClient({ initialUser, initialSettings, infinitypayH
             </SettingToggle>
 
             <SettingToggle
+              label="Lembrete de orçamento"
+              description="Envia mensagem 24h antes do orçamento expirar."
+              info="Funciona junto com a expiração de orçamentos."
+              enabled={s.quoteReminderEnabled}
+              onChange={(v) => set("quoteReminderEnabled", v)}
+              disabled={!s.whatsappAutoEnabled}
+              disabledReason="⚠ Ative as mensagens automáticas primeiro."
+            >
+              <MsgField
+                value={s.quoteReminderMessage}
+                onChange={(v) => set("quoteReminderMessage", v)}
+                placeholder="Olá {{nome}}! Seu orçamento de {{valor}} expira em {{data}}. Posso ajudar com alguma dúvida?"
+                vars={["{{nome}}", "{{valor}}", "{{data}}"]}
+              />
+            </SettingToggle>
+
+            <SettingToggle
               label="Resposta automática"
               description="Responde automaticamente quando alguém te envia uma mensagem."
               info="A mensagem é enviada uma única vez por contato a cada 24h."
@@ -480,13 +520,12 @@ export function ConfiguracoesClient({ initialUser, initialSettings, infinitypayH
               disabled={!s.whatsappAutoEnabled}
               disabledReason="⚠ Ative as mensagens automáticas primeiro."
             >
-              <textarea rows={3} value={s.autoReplyMessage}
-                onChange={(e) => set("autoReplyMessage", e.target.value)}
-                className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                placeholder="Digite sua mensagem automática..." />
-              <p className="mt-1 text-xs text-text-muted">
-                Variáveis disponíveis: <code className="text-primary">{"{{nome}}"}</code>
-              </p>
+              <MsgField
+                value={s.autoReplyMessage}
+                onChange={(v) => set("autoReplyMessage", v)}
+                placeholder="Olá! Recebi sua mensagem e responderei em breve. 😊"
+                vars={["{{nome}}"]}
+              />
             </SettingToggle>
           </Section>
 
@@ -500,40 +539,68 @@ export function ConfiguracoesClient({ initialUser, initialSettings, infinitypayH
               disabled={!s.whatsappAutoEnabled}
               disabledReason="⚠ Ative as mensagens automáticas primeiro."
             >
-              <div className="flex flex-col gap-2">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={s.followup7DaysEnabled}
-                    onChange={(e) => set("followup7DaysEnabled", e.target.checked)}
-                    className="h-4 w-4 rounded accent-primary" />
-                  <span className="text-sm text-text-secondary">Após 7 dias — verificar satisfação</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={s.followup30DaysEnabled}
-                    onChange={(e) => set("followup30DaysEnabled", e.target.checked)}
-                    className="h-4 w-4 rounded accent-primary" />
-                  <span className="text-sm text-text-secondary">Após 30 dias — oferta de recompra</span>
-                </label>
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={s.followup7DaysEnabled}
+                      onChange={(e) => set("followup7DaysEnabled", e.target.checked)}
+                      className="h-4 w-4 rounded accent-primary" />
+                    <span className="text-sm font-medium text-text-secondary">Após 7 dias — verificar satisfação</span>
+                  </label>
+                  {s.followup7DaysEnabled && (
+                    <MsgField
+                      value={s.followup7DaysMessage}
+                      onChange={(v) => set("followup7DaysMessage", v)}
+                      placeholder="Olá {{nome}}! 😊 Passando para saber se ficou satisfeito com sua impressão 3D. Ficou alguma dúvida?"
+                      vars={["{{nome}}"]}
+                    />
+                  )}
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={s.followup30DaysEnabled}
+                      onChange={(e) => set("followup30DaysEnabled", e.target.checked)}
+                      className="h-4 w-4 rounded accent-primary" />
+                    <span className="text-sm font-medium text-text-secondary">Após 30 dias — oferta de recompra</span>
+                  </label>
+                  {s.followup30DaysEnabled && (
+                    <MsgField
+                      value={s.followup30DaysMessage}
+                      onChange={(v) => set("followup30DaysMessage", v)}
+                      placeholder="Olá {{nome}}! 👋 Faz um mês desde sua última impressão 3D. Tem algum novo projeto que posso ajudar?"
+                      vars={["{{nome}}"]}
+                    />
+                  )}
+                </div>
               </div>
             </SettingToggle>
 
             <SettingToggle
               label="Pesquisa NPS automática"
-              description="Envia uma mensagem pedindo nota de 1 a 10 após a entrega."
+              description="Envia uma mensagem pedindo nota de 0 a 10 após a entrega."
               info="NPS mede a satisfação do cliente. Os resultados aparecem no módulo financeiro."
               enabled={s.npsEnabled}
               onChange={(v) => set("npsEnabled", v)}
               disabled={!s.whatsappAutoEnabled}
               disabledReason="⚠ Ative as mensagens automáticas primeiro."
             >
-              <div className="flex items-center gap-3">
-                <label className="text-sm text-text-secondary whitespace-nowrap">Enviar</label>
-                <div className="relative w-24">
-                  <input type="number" min={1} max={30} value={s.npsDaysAfterDelivery}
-                    onChange={(e) => set("npsDaysAfterDelivery", Number(e.target.value))}
-                    className={inputCls} />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-text-muted">dias</span>
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-3">
+                  <label className="text-sm text-text-secondary whitespace-nowrap">Enviar</label>
+                  <div className="relative w-24">
+                    <input type="number" min={1} max={30} value={s.npsDaysAfterDelivery}
+                      onChange={(e) => set("npsDaysAfterDelivery", Number(e.target.value))}
+                      className={inputCls} />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-text-muted">dias</span>
+                  </div>
+                  <span className="text-sm text-text-secondary">após entrega</span>
                 </div>
-                <span className="text-sm text-text-secondary">após entrega</span>
+                <MsgField
+                  value={s.npsMessage}
+                  onChange={(v) => set("npsMessage", v)}
+                  placeholder="Olá {{nome}}! Em uma escala de 0 a 10, quanto você recomendaria nosso serviço para um amigo? Responda com o número 😊"
+                  vars={["{{nome}}"]}
+                />
               </div>
             </SettingToggle>
           </Section>
