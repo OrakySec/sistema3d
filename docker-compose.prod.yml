@@ -7,7 +7,7 @@ services:
     environment:
       DATABASE_URL:                        "${DATABASE_URL}"
       AUTH_SECRET:                         "${AUTH_SECRET}"
-      NEXT_PUBLIC_APP_URL:                 "https://app.ykaromarques.com"
+      NEXT_PUBLIC_APP_URL:                 "https://app.ferreira3d.com"
       AUTH_TRUST_HOST:                     "true"
       REDIS_URL:                           "redis://:${REDIS_PASSWORD}@sistema3d_redis:6379"
       MINIO_ENDPOINT:                      "sistema3d_minio"
@@ -35,7 +35,7 @@ services:
       labels:
         - "traefik.enable=true"
         - "traefik.docker.network=YkaroNET"
-        - "traefik.http.routers.sistema3d.rule=Host(`app.ykaromarques.com`)"
+        - "traefik.http.routers.sistema3d.rule=Host(`app.ferreira3d.com`)"
         - "traefik.http.routers.sistema3d.entrypoints=websecure"
         - "traefik.http.routers.sistema3d.tls.certresolver=letsencryptresolver"
         - "traefik.http.services.sistema3d.loadbalancer.server.port=3000"
