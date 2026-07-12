@@ -39,7 +39,7 @@ export async function POST(req: Request) {
     mode:                 "subscription",
     payment_method_types: ["card"],
     line_items: [{ price: priceId, quantity: 1 }],
-    ...(!isAnnual && STRIPE_PROMO_MONTHLY ? { discounts: [{ promotion_code: STRIPE_PROMO_MONTHLY }] } : {}),
+    ...(!isAnnual && STRIPE_PROMO_MONTHLY ? { discounts: [{ coupon: STRIPE_PROMO_MONTHLY }] } : {}),
     success_url: `${appUrl}/configuracoes?billing=success`,
     cancel_url:  `${appUrl}/configuracoes?billing=cancel`,
     metadata:    { userId: session.user.id, plan: basePlan },
