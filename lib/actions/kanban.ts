@@ -192,16 +192,22 @@ export async function completePrint(printLogId: string, filamentUsed?: number) {
   await getUserId();
 
   const printLog = await prisma.printLog.findUnique({
-    where: { id: printLogId },
+    where:   { id: printLogId },
     include: { card: true },
   });
   if (!printLog) return { error: "Impressão não encontrada." };
 
   const now = new Date();
+
+  // Horas reais de impressão: usa o tempo medido desde startedAt, ou estimatedHours como fallback
+  const hoursUsed = printLog.startedAt
+    ? (now.getTime() - new Date(printLog.startedAt).getTime()) / 3_600_000
+    : (printLog.estimatedHours ?? 0);
+
   const updates: Promise<unknown>[] = [
     prisma.printLog.update({
       where: { id: printLogId },
-      data: { status: "COMPLETED", completedAt: now },
+      data:  { status: "COMPLETED", completedAt: now },
     }),
     prisma.printStatusHistory.create({
       data: { printLogId, status: "COMPLETED" },
@@ -215,6 +221,16 @@ export async function completePrint(printLogId: string, filamentUsed?: number) {
     );
   }
 
+  // Atualizar horas de uso da impressora
+  if (printLog.printerId && hoursUsed > 0) {
+    updates.push(
+      prisma.printer.update({
+        where: { id: printLog.printerId },
+        data:  { totalHours: { increment: hoursUsed } },
+      })
+    );
+  }
+
   // Deduzir filamento do estoque
   if (printLog.filamentId && filamentUsed && filamentUsed > 0) {
     const filament = await prisma.filament.findUnique({ where: { id: printLog.filamentId } });
@@ -222,7 +238,7 @@ export async function completePrint(printLogId: string, filamentUsed?: number) {
       updates.push(
         prisma.filament.update({
           where: { id: printLog.filamentId },
-          data: { currentGrams: Math.max(0, filament.currentGrams - filamentUsed) },
+          data:  { currentGrams: Math.max(0, filament.currentGrams - filamentUsed) },
         })
       );
     }
@@ -231,4 +247,5 @@ export async function completePrint(printLogId: string, filamentUsed?: number) {
   await Promise.all(updates);
   revalidatePath("/producao");
   revalidatePath("/estoque");
+  revalidatePath("/impressoras");
 }
