@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useCallback } from "react";
 import { Plus, Search, Users, Phone, Mail, MapPin, Tag, Pencil, Trash2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -12,12 +12,22 @@ import type { Plan, LimitKey } from "@/lib/plans";
 
 const clientSchema = z.object({
   name:     z.string().min(2, "Mínimo 2 caracteres"),
-  whatsapp: z.string().optional(),
+  whatsapp: z.string()
+    .optional()
+    .refine((v) => !v || v.replace(/\D/g, "").length >= 10, "Número incompleto — inclua o DDD"),
   email:    z.string().email("Email inválido").optional().or(z.literal("")),
   city:     z.string().optional(),
   notes:    z.string().optional(),
   tags:     z.string().optional(),
 });
+
+function maskPhone(value: string): string {
+  const d = value.replace(/\D/g, "").slice(0, 11);
+  if (d.length <= 2)  return d.length ? `(${d}` : "";
+  if (d.length <= 6)  return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+}
 type ClientForm = z.infer<typeof clientSchema>;
 
 interface Client {
@@ -31,13 +41,18 @@ function ClientDialog({ client, onClose, onLimitExceeded }: {
   client?: Client; onClose: () => void; onLimitExceeded: (key: LimitKey) => void;
 }) {
   const [pending, startTransition] = useTransition();
-  const { register, handleSubmit, formState: { errors } } = useForm<ClientForm>({
+  const { register, handleSubmit, setValue, formState: { errors } } = useForm<ClientForm>({
     resolver: zodResolver(clientSchema),
     defaultValues: client
-      ? { name: client.name, whatsapp: client.whatsapp ?? "", email: client.email ?? "",
-          city: client.city ?? "", notes: client.notes ?? "", tags: client.tags.join(", ") }
+      ? { name: client.name, whatsapp: client.whatsapp ? maskPhone(client.whatsapp) : "",
+          email: client.email ?? "", city: client.city ?? "",
+          notes: client.notes ?? "", tags: client.tags.join(", ") }
       : {},
   });
+
+  const handlePhoneChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setValue("whatsapp", maskPhone(e.target.value), { shouldValidate: true });
+  }, [setValue]);
 
   function onSubmit(data: ClientForm) {
     const fd = new FormData();
@@ -59,7 +74,14 @@ function ClientDialog({ client, onClose, onLimitExceeded }: {
             <input {...register("name")} placeholder="Nome completo" className={inputCls} />
           </FormField>
           <FormField label="WhatsApp" error={errors.whatsapp?.message}>
-            <input {...register("whatsapp")} placeholder="(11) 99999-9999" className={inputCls} />
+            <input
+              {...register("whatsapp")}
+              onChange={handlePhoneChange}
+              placeholder="(11) 99999-9999"
+              inputMode="numeric"
+              maxLength={15}
+              className={inputCls}
+            />
           </FormField>
           <FormField label="E-mail" error={errors.email?.message}>
             <input {...register("email")} type="email" placeholder="email@exemplo.com" className={inputCls} />
