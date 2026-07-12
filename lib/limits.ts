@@ -1,6 +1,14 @@
 import { prisma } from "@/lib/prisma";
 import { PLAN_LIMITS, type LimitKey, type Plan } from "@/lib/plans";
 
+// Statuses where the subscription is not active — treat as FREE
+const INACTIVE_STATUSES = new Set(["PAST_DUE", "CANCELED", "UNPAID"]);
+
+function effectivePlan(plan: Plan, subscriptionStatus: string | null): Plan {
+  if (!subscriptionStatus || INACTIVE_STATUSES.has(subscriptionStatus)) return "FREE";
+  return plan;
+}
+
 interface LimitResult {
   allowed: boolean;
   plan: Plan;
@@ -16,10 +24,10 @@ export async function checkLimit(
 ): Promise<LimitResult> {
   const user = await prisma.user.findUnique({
     where:  { id: userId },
-    select: { plan: true },
+    select: { plan: true, subscriptionStatus: true },
   });
 
-  const plan  = user?.plan ?? "FREE";
+  const plan  = effectivePlan(user?.plan ?? "FREE", user?.subscriptionStatus ?? null);
   const limit = PLAN_LIMITS[plan][key] as number;
 
   return {
@@ -37,8 +45,8 @@ export async function checkFeature(
 ): Promise<boolean> {
   const user = await prisma.user.findUnique({
     where:  { id: userId },
-    select: { plan: true },
+    select: { plan: true, subscriptionStatus: true },
   });
-  const plan = user?.plan ?? "FREE";
+  const plan = effectivePlan(user?.plan ?? "FREE", user?.subscriptionStatus ?? null);
   return PLAN_LIMITS[plan][feature];
 }
