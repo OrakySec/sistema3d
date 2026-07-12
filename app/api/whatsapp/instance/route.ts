@@ -33,6 +33,16 @@ export async function GET() {
       headers: evoHeaders(),
     });
     const data = await res.json();
+
+    // Instância não existe mais na Evolution API — limpa o banco
+    if (res.status === 404) {
+      await prisma.user.update({
+        where: { id: session.user.id },
+        data:  { evolutionInstance: null, evolutionConnected: false },
+      });
+      return NextResponse.json({ status: "not_created" });
+    }
+
     const connected = data?.instance?.state === "open";
 
     await prisma.user.update({
@@ -81,6 +91,14 @@ export async function POST() {
 
     const createData = await createRes.json();
     console.log("[whatsapp/instance POST] create response:", JSON.stringify(createData).slice(0, 500));
+
+    if (!createRes.ok) {
+      const msg = (createData as { response?: { message?: string[] } })?.response?.message?.[0]
+                ?? (createData as { error?: string })?.error
+                ?? `Erro ${createRes.status} ao criar instância na Evolution API`;
+      console.error("[whatsapp/instance POST] create failed:", msg);
+      return NextResponse.json({ error: msg }, { status: 500 });
+    }
 
     await prisma.user.update({
       where: { id: session.user.id },
