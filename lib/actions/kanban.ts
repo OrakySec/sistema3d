@@ -99,8 +99,9 @@ export async function moveKanbanCard(cardId: string, toColumn: KanbanColumn) {
     }),
   ]);
 
-  // Dispara automações WhatsApp quando entregue
-  if (toColumn === "DELIVERED") {
+  // Dispara automações WhatsApp em colunas relevantes
+  const WA_COLUMNS: KanbanColumn[] = ["PRINTING", "POST_PROD", "READY", "DELIVERED"];
+  if (WA_COLUMNS.includes(toColumn)) {
     const [settings, user] = await Promise.all([
       prisma.userSettings.findUnique({ where: { userId } }),
       prisma.user.findUnique({ where: { id: userId }, select: { evolutionInstance: true } }),
@@ -108,6 +109,7 @@ export async function moveKanbanCard(cardId: string, toColumn: KanbanColumn) {
 
     const clientPhone = card.quote?.client?.whatsapp ?? null;
     const clientName  = card.quote?.client?.name ?? "cliente";
+    const pedidoRef   = card.quote?.pieceName ?? "seu pedido";
 
     if (
       settings?.whatsappAutoEnabled &&
@@ -120,42 +122,42 @@ export async function moveKanbanCard(cardId: string, toColumn: KanbanColumn) {
         : false;
 
       if (!silent) {
-        const vars = { nome: clientName };
+        const vars = { nome: clientName.split(" ")[0], pedido: pedidoRef };
+        const instance = user.evolutionInstance!;
 
-        // Follow-up 7 dias — agenda via setTimeout (fire-and-forget; em prod usar cron)
-        if (settings.followupEnabled && settings.followup7DaysEnabled && settings.followup7DaysMessage) {
-          const delay7 = 7 * 24 * 60 * 60 * 1000;
-          setTimeout(() => {
-            sendWhatsAppMessage({
-              instanceName: user.evolutionInstance!,
-              phone:        clientPhone,
-              message:      interpolate(settings.followup7DaysMessage!, vars),
-            });
-          }, delay7);
+        // Mensagem imediata por coluna
+        const immediateMsg: Record<string, string | null | undefined> = {
+          PRINTING:  settings.productionMessage,
+          POST_PROD: settings.postProdMessage,
+          READY:     settings.readyMessage,
+        };
+
+        const msg = immediateMsg[toColumn];
+        if (msg) {
+          await sendWhatsAppMessage({
+            instanceName: instance,
+            phone:        clientPhone,
+            message:      interpolate(msg, vars),
+          });
         }
 
-        // Follow-up 30 dias
-        if (settings.followupEnabled && settings.followup30DaysEnabled && settings.followup30DaysMessage) {
-          const delay30 = 30 * 24 * 60 * 60 * 1000;
-          setTimeout(() => {
-            sendWhatsAppMessage({
-              instanceName: user.evolutionInstance!,
-              phone:        clientPhone,
-              message:      interpolate(settings.followup30DaysMessage!, vars),
-            });
-          }, delay30);
-        }
-
-        // NPS
-        if (settings.npsEnabled && settings.npsMessage) {
-          const delayNps = (settings.npsDaysAfterDelivery ?? 7) * 24 * 60 * 60 * 1000;
-          setTimeout(() => {
-            sendWhatsAppMessage({
-              instanceName: user.evolutionInstance!,
-              phone:        clientPhone,
-              message:      interpolate(settings.npsMessage!, vars),
-            });
-          }, delayNps);
+        // Ao entregar: follow-up e NPS agendados
+        if (toColumn === "DELIVERED") {
+          if (settings.followupEnabled && settings.followup7DaysEnabled && settings.followup7DaysMessage) {
+            setTimeout(() => {
+              sendWhatsAppMessage({ instanceName: instance, phone: clientPhone, message: interpolate(settings.followup7DaysMessage!, vars) });
+            }, 7 * 24 * 60 * 60 * 1000);
+          }
+          if (settings.followupEnabled && settings.followup30DaysEnabled && settings.followup30DaysMessage) {
+            setTimeout(() => {
+              sendWhatsAppMessage({ instanceName: instance, phone: clientPhone, message: interpolate(settings.followup30DaysMessage!, vars) });
+            }, 30 * 24 * 60 * 60 * 1000);
+          }
+          if (settings.npsEnabled && settings.npsMessage) {
+            setTimeout(() => {
+              sendWhatsAppMessage({ instanceName: instance, phone: clientPhone, message: interpolate(settings.npsMessage!, vars) });
+            }, (settings.npsDaysAfterDelivery ?? 7) * 24 * 60 * 60 * 1000);
+          }
         }
       }
     }

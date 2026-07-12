@@ -42,6 +42,9 @@ interface SettingsData {
   autoReplyEnabled: boolean;
   autoReplyMessage: string;
   quoteReminderMessage: string;
+  productionMessage: string;
+  postProdMessage: string;
+  readyMessage: string;
   followupEnabled: boolean;
   followup7DaysEnabled: boolean;
   followup7DaysMessage: string;
@@ -508,6 +511,57 @@ export function ConfiguracoesClient({ initialUser, initialSettings, infinitypayH
                 onChange={(v) => set("quoteReminderMessage", v)}
                 placeholder="Olá {{nome}}! Seu orçamento de {{valor}} expira em {{data}}. Posso ajudar com alguma dúvida?"
                 vars={["{{nome}}", "{{valor}}", "{{data}}"]}
+              />
+            </SettingToggle>
+
+            <SettingToggle
+              label="Pedido em produção"
+              description="Avisa o cliente quando o pedido entra na fila de impressão."
+              info="Disparado ao mover o card para 'Em Produção' no Kanban."
+              enabled={!!s.productionMessage}
+              onChange={(v) => set("productionMessage", v ? "Olá {{nome}}! 🖨️ Seu pedido entrou em produção e já está sendo impresso. Em breve ficará pronto!" : "")}
+              disabled={!s.whatsappAutoEnabled}
+              disabledReason="⚠ Ative as mensagens automáticas primeiro."
+            >
+              <MsgField
+                value={s.productionMessage}
+                onChange={(v) => set("productionMessage", v)}
+                placeholder="Olá {{nome}}! 🖨️ Seu pedido entrou em produção e já está sendo impresso!"
+                vars={["{{nome}}", "{{pedido}}"]}
+              />
+            </SettingToggle>
+
+            <SettingToggle
+              label="Pedido em pós-produção"
+              description="Avisa o cliente quando o pedido está em acabamento/pintura."
+              info="Disparado ao mover o card para 'Pós-Produção' no Kanban."
+              enabled={!!s.postProdMessage}
+              onChange={(v) => set("postProdMessage", v ? "Olá {{nome}}! ✨ Sua impressão terminou e agora está em fase de acabamento. Quase pronto!" : "")}
+              disabled={!s.whatsappAutoEnabled}
+              disabledReason="⚠ Ative as mensagens automáticas primeiro."
+            >
+              <MsgField
+                value={s.postProdMessage}
+                onChange={(v) => set("postProdMessage", v)}
+                placeholder="Olá {{nome}}! ✨ Sua impressão terminou e está em fase de acabamento. Quase pronto!"
+                vars={["{{nome}}", "{{pedido}}"]}
+              />
+            </SettingToggle>
+
+            <SettingToggle
+              label="Pedido pronto para retirada"
+              description="Avisa o cliente quando o pedido está pronto."
+              info="Disparado ao mover o card para 'Pronto' no Kanban."
+              enabled={!!s.readyMessage}
+              onChange={(v) => set("readyMessage", v ? "Olá {{nome}}! 🎉 Seu pedido está pronto! Entre em contato para combinar a entrega ou retirada." : "")}
+              disabled={!s.whatsappAutoEnabled}
+              disabledReason="⚠ Ative as mensagens automáticas primeiro."
+            >
+              <MsgField
+                value={s.readyMessage}
+                onChange={(v) => set("readyMessage", v)}
+                placeholder="Olá {{nome}}! 🎉 Seu pedido está pronto! Entre em contato para combinar a entrega."
+                vars={["{{nome}}", "{{pedido}}"]}
               />
             </SettingToggle>
 

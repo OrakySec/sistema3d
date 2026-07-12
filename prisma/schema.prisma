@@ -222,6 +222,9 @@ model UserSettings {
   autoReplyEnabled             Boolean @default(false)
   autoReplyMessage             String? @db.Text
   quoteReminderMessage         String? @db.Text
+  productionMessage            String? @db.Text
+  postProdMessage              String? @db.Text
+  readyMessage                 String? @db.Text
   followupEnabled              Boolean @default(false)
   followup7DaysEnabled         Boolean @default(true)
   followup7DaysMessage         String? @db.Text
