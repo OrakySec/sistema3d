@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { sendConversionEvent } from "@/lib/meta";
+import crypto from "crypto";
 
 const schema = z.object({
   name: z.string().min(2),
@@ -45,6 +47,19 @@ export async function POST(req: Request) {
         },
       },
     });
+
+    const clientIp  = req.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? null;
+    const userAgent = req.headers.get("user-agent") ?? null;
+    const cookieHeader = req.headers.get("cookie") ?? "";
+    const fbc = cookieHeader.match(/_fbc=([^;]+)/)?.[1] ?? null;
+    const fbp = cookieHeader.match(/_fbp=([^;]+)/)?.[1] ?? null;
+    const userData = { email, name, fbc, fbp, clientIp, userAgent };
+
+    const eventId = crypto.randomUUID();
+    await Promise.all([
+      sendConversionEvent({ eventName: "CompleteRegistration", eventId, userData }),
+      sendConversionEvent({ eventName: "StartTrial", eventId: crypto.randomUUID(), userData }),
+    ]);
 
     return NextResponse.json({ ok: true }, { status: 201 });
   } catch (err) {

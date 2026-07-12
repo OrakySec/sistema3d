@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans, Space_Grotesk } from "next/font/google";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SessionProvider } from "@/components/providers/SessionProvider";
+import { MetaPixel } from "@/components/shared/MetaPixel";
 import "./globals.css";
 
 // ── Fontes ─────────────────────────────────────────────────
@@ -51,6 +52,7 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-full bg-background text-text-primary antialiased">
+        <MetaPixel />
         <SessionProvider>
           <TooltipProvider delayDuration={300}>{children}</TooltipProvider>
         </SessionProvider>

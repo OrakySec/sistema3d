@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { trackEvent } from "@/components/shared/MetaPixel";
 import {
   Zap, CreditCard, Loader2, CheckCircle2, X,
   FileText, Users, Printer, Package, MessageCircle,
@@ -65,6 +66,11 @@ export function BillingSection({ plan, subscriptionStatus, currentPeriodEnd, has
   const [loading, setLoading]   = useState<"PRO" | "PRO_ANNUAL" | "STUDIO" | "STUDIO_ANNUAL" | "portal" | null>(null);
   const [interval, setInterval] = useState<BillingInterval>("monthly");
 
+  // ViewContent ao montar (usuário abriu a aba de assinatura)
+  useEffect(() => {
+    trackEvent("ViewContent", { content_name: "pricing", content_category: "subscription" });
+  }, []);
+
   const limits    = PLAN_LIMITS[plan];
   const status    = STATUS_LABELS[subscriptionStatus];
   const periodEnd = currentPeriodEnd ? new Date(currentPeriodEnd).toLocaleDateString("pt-BR") : null;
@@ -73,6 +79,13 @@ export function BillingSection({ plan, subscriptionStatus, currentPeriodEnd, has
   async function handleUpgrade(base: "PRO" | "STUDIO") {
     const planKey = isAnnual ? `${base}_ANNUAL` as const : base;
     setLoading(planKey);
+    const price = PRICES[base][isAnnual ? "annual" : "monthly"];
+    await trackEvent("InitiateCheckout", {
+      content_name:     planKey,
+      content_category: "subscription",
+      value:            price,
+      currency:         "BRL",
+    });
     const res  = await fetch("/api/billing/checkout", {
       method:  "POST",
       headers: { "Content-Type": "application/json" },

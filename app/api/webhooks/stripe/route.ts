@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
+import { sendConversionEvent } from "@/lib/meta";
 import type { Plan } from "@/lib/plans";
 import type Stripe from "stripe";
+import crypto from "crypto";
 
 const PRICE_TO_PLAN: Record<string, Plan> = {
   [process.env.STRIPE_PRICE_PRO           ?? ""]: "PRO",
@@ -33,13 +35,37 @@ export async function POST(req: Request) {
 
       const sub = await stripe.subscriptions.retrieve(s.subscription as string);
 
-      await prisma.user.update({
-        where: { id: userId },
+      const updatedUser = await prisma.user.update({
+        where:  { id: userId },
+        select: { email: true, name: true, whatsapp: true, city: true },
         data: {
           plan,
           subscriptionStatus:   "ACTIVE",
           stripeSubscriptionId: sub.id,
           currentPeriodEnd:     new Date((sub as unknown as { current_period_end: number }).current_period_end * 1000),
+        },
+      });
+
+      // Plano e valor para rastreamento
+      const planValues: Record<string, number> = { PRO: 97, STUDIO: 197 };
+      await sendConversionEvent({
+        eventName:      "Subscribe",
+        eventId:        crypto.randomUUID(),
+        eventSourceUrl: `${process.env.NEXT_PUBLIC_APP_URL}/configuracoes`,
+        userData: {
+          email:     updatedUser.email,
+          name:      updatedUser.name,
+          phone:     updatedUser.whatsapp,
+          city:      updatedUser.city,
+          fbc:       null,
+          fbp:       null,
+          clientIp:  null,
+          userAgent: null,
+        },
+        customData: {
+          value:    planValues[plan] ?? 0,
+          currency: "BRL",
+          content_name: plan,
         },
       });
       break;
