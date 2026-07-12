@@ -30,7 +30,7 @@ export async function POST(req: Request) {
     await prisma.user.update({ where: { id: session.user.id }, data: { stripeCustomerId: customerId } });
   }
 
-  const appUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXTAUTH_URL ?? "http://localhost:3000";
 
   const basePlan = plan.replace("_ANNUAL", "") as "PRO" | "STUDIO";
 
