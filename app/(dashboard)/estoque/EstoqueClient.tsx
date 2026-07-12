@@ -21,6 +21,7 @@ const filamentSchema = z.object({
   purchasedGrams: z.coerce.number().positive("Informe o peso"),
   currentGrams:   z.coerce.number().min(0),
   costPerKg:      z.coerce.number().positive("Informe o custo"),
+  density:        z.coerce.number().positive().optional(),
   lowStockAlert:  z.coerce.number().min(0),
 });
 type FilamentForm = z.infer<typeof filamentSchema>;
@@ -28,7 +29,8 @@ type FilamentForm = z.infer<typeof filamentSchema>;
 interface Filament {
   id: string; name: string; brand?: string | null; type: typeof FILAMENT_TYPES[number];
   color?: string | null; colorHex?: string | null; purchasedGrams: number;
-  currentGrams: number; costPerKg: number; lowStockAlert: number; active: boolean;
+  currentGrams: number; costPerKg: number; density?: number | null;
+  lowStockAlert: number; active: boolean;
 }
 
 const typeColors: Record<string, string> = {
@@ -49,10 +51,11 @@ function FilamentDialog({ filament, onClose, onLimitExceeded }: {
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FilamentForm>({
     resolver: zodResolver(filamentSchema) as Resolver<FilamentForm>,
     defaultValues: filament
-      ? { ...filament, brand: filament.brand ?? "", color: filament.color ?? "", colorHex: filament.colorHex ?? "" }
+      ? { ...filament, brand: filament.brand ?? "", color: filament.color ?? "", colorHex: filament.colorHex ?? "", density: filament.density ?? undefined }
       : { type: "PLA", lowStockAlert: 200, purchasedGrams: 1000, currentGrams: 1000, costPerKg: 85 },
   });
   const colorHex = watch("colorHex");
+  const watchedType = watch("type");
   const isValidHex = /^#[0-9A-Fa-f]{6}$/.test(colorHex || "");
 
   function onSubmit(data: FilamentForm) {
@@ -121,6 +124,15 @@ function FilamentDialog({ filament, onClose, onLimitExceeded }: {
               <input {...register("costPerKg")} type="number" min={1} step={0.01} placeholder="85" className={`${inputCls} pl-8`} />
             </div>
           </FormField>
+          {watchedType === "RESIN" && (
+            <FormField label="Densidade (g/mL)" error={errors.density?.message}>
+              <div className="relative">
+                <input {...register("density")} type="number" min={0.5} max={3} step={0.01} placeholder="1.1" className={inputCls} />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-text-muted">g/mL</span>
+              </div>
+              <p className="text-xs text-text-muted">Padrão: ~1,1 g/mL. Consulte a embalagem da resina. Usado para converter mL (Chitubox) → gramas no orçamento.</p>
+            </FormField>
+          )}
           <FormField label="Alerta de estoque baixo (g)">
             <div className="relative">
               <input {...register("lowStockAlert")} type="number" min={0} placeholder="200" className={inputCls} />

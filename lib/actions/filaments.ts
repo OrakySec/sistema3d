@@ -18,6 +18,7 @@ const filamentSchema = z.object({
   purchasedGrams: z.coerce.number().positive(),
   currentGrams:   z.coerce.number().min(0),
   costPerKg:      z.coerce.number().positive(),
+  density:        z.coerce.number().positive().optional(),
   lowStockAlert:  z.coerce.number().min(0),
 });
 

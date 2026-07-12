@@ -20,7 +20,7 @@ export default async function NovoOrcamentoPage() {
     prisma.filament.findMany({
       where:   { userId, active: true },
       orderBy: { name: "asc" },
-      select:  { id: true, name: true, costPerKg: true, colorHex: true, type: true, currentGrams: true },
+      select:  { id: true, name: true, costPerKg: true, colorHex: true, type: true, currentGrams: true, density: true },
     }),
     prisma.client.findMany({
       where:   { userId },

@@ -15,6 +15,7 @@ import type { Plan, LimitKey } from "@/lib/plans";
 const printerSchema = z.object({
   name:               z.string().min(2, "Nome obrigatório"),
   model:              z.string().optional(),
+  printerType:        z.enum(["FDM", "RESIN"]).default("FDM"),
   powerWatts:         z.coerce.number().positive("Informe o consumo"),
   purchasePrice:      z.coerce.number().positive("Informe o preço"),
   estimatedHours:     z.coerce.number().positive("Informe a vida útil"),
@@ -24,9 +25,10 @@ const printerSchema = z.object({
 type PrinterForm = z.infer<typeof printerSchema>;
 
 interface PrinterModel {
-  id: string; name: string; model?: string | null; powerWatts: number;
-  purchasePrice: number; estimatedHours: number; monthlyMaintenance: number;
-  active: boolean; totalHours: number; totalPrints: number; successCount: number;
+  id: string; name: string; model?: string | null; printerType: "FDM" | "RESIN";
+  powerWatts: number; purchasePrice: number; estimatedHours: number;
+  monthlyMaintenance: number; active: boolean; totalHours: number;
+  totalPrints: number; successCount: number;
 }
 
 function cph(p: PrinterModel)  { return p.purchasePrice / p.estimatedHours + p.monthlyMaintenance / 730; }
@@ -41,7 +43,7 @@ function PrinterDialog({ printer, onClose, onLimitExceeded }: {
     resolver: zodResolver(printerSchema) as unknown as Resolver<PrinterForm>,
     defaultValues: printer
       ? { ...printer, model: printer.model ?? undefined }
-      : { estimatedHours: 5000, monthlyMaintenance: 0 },
+      : { printerType: "FDM" as const, estimatedHours: 5000, monthlyMaintenance: 0 },
   });
   const [pp, eh, mm] = [watch("purchasePrice") ?? 0, watch("estimatedHours") ?? 5000, watch("monthlyMaintenance") ?? 0];
   const previewCph = pp / eh + mm / 730;
@@ -68,6 +70,19 @@ function PrinterDialog({ printer, onClose, onLimitExceeded }: {
           </FormField>
           <FormField label="Modelo">
             <input {...register("model")} placeholder="X1C" className={inputCls} />
+          </FormField>
+          <FormField label="Tipo de impressão" className="sm:col-span-2">
+            <div className="flex gap-2">
+              {(["FDM", "RESIN"] as const).map((t) => (
+                <label key={t} className="flex flex-1 cursor-pointer items-center gap-2.5 rounded-lg border border-border bg-background px-4 py-2.5 transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary-subtle">
+                  <input type="radio" value={t} {...register("printerType")} className="accent-primary" />
+                  <div>
+                    <p className="text-sm font-medium text-text-primary">{t === "FDM" ? "FDM / Filamento" : "Resina (SLA/DLP/MSLA)"}</p>
+                    <p className="text-xs text-text-muted">{t === "FDM" ? "Usa filamento em bobina (PLA, PETG, ABS...)" : "Usa resina líquida (Standard, ABS-Like...)"}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
           </FormField>
           <FormField label="Consumo (W)" error={errors.powerWatts?.message}>
             <div className="relative">
@@ -183,6 +198,9 @@ export function ImpressorasClient({
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <div className={`h-1.5 w-1.5 rounded-full ${p.active ? "bg-success" : "bg-text-muted"}`} />
                       <span className="text-xs text-text-muted">{p.active ? "Ativa" : "Inativa"}</span>
+                      <span className={`text-xs font-medium px-1.5 py-0.5 rounded-md ${p.printerType === "RESIN" ? "bg-pink-500/10 text-pink-400" : "bg-blue-500/10 text-blue-400"}`}>
+                        {p.printerType === "RESIN" ? "Resina" : "FDM"}
+                      </span>
                     </div>
                   </div>
                 </div>

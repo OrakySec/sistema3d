@@ -21,7 +21,7 @@ interface PrinterOption {
 }
 interface FilamentOption {
   id: string; name: string; costPerKg: number; colorHex?: string | null;
-  type: string; currentGrams: number;
+  type: string; currentGrams: number; density?: number | null;
 }
 interface ClientOption { id: string; name: string; }
 interface Settings {
@@ -185,11 +185,19 @@ export function Calculator({ printers, filaments, clients, settings, plan, isFir
   const printer  = printers.find((p) => p.id === printerId)  ?? printers[0];
   const filament = filaments.find((f) => f.id === filamentId) ?? filaments[0];
 
+  const isResin = filament?.type === "RESIN";
+  const resinDensity = filament?.density ?? 1.1;
+  // filamentGrams é sempre em gramas internamente; resinMl é a entrada do usuário quando isResin
+  const [resinMl, setResinMl] = useState<number>(() =>
+    initialData ? Math.round(initialData.filamentGrams / (filament?.density ?? 1.1)) : 30
+  );
+  const effectiveGrams = isResin ? resinMl * resinDensity : filamentGrams;
+
   // Breakdown base (margem=0) para derivar margem a partir de preço
   const baseBreakdown = useMemo(() => {
     if (!printer || !filament) return null;
     return calculateQuote({
-      filamentGrams, printHours, profitMargin: 0, paintingHours,
+      filamentGrams: effectiveGrams, printHours, profitMargin: 0, paintingHours,
       filamentCostPerKg:         filament.costPerKg,
       printerPowerWatts:         printer.powerWatts,
       printerPurchasePrice:      printer.purchasePrice,
@@ -210,7 +218,7 @@ export function Calculator({ printers, filaments, clients, settings, plan, isFir
   const breakdown = useMemo(() => {
     if (!printer || !filament) return null;
     return calculateQuote({
-      filamentGrams, printHours, profitMargin: effectiveMargin, paintingHours,
+      filamentGrams: effectiveGrams, printHours, profitMargin: effectiveMargin, paintingHours,
       filamentCostPerKg:         filament.costPerKg,
       printerPowerWatts:         printer.powerWatts,
       printerPurchasePrice:      printer.purchasePrice,
@@ -241,7 +249,7 @@ export function Calculator({ printers, filaments, clients, settings, plan, isFir
       const updated = { ...v, ...patch };
       if (printer && filament) {
         updated.breakdown = calculateQuote({
-          filamentGrams, printHours,
+          filamentGrams: effectiveGrams, printHours,
           profitMargin:  updated.profitMargin,
           paintingHours: updated.paintingHours,
           filamentCostPerKg:         filament.costPerKg,
@@ -278,7 +286,7 @@ export function Calculator({ printers, filaments, clients, settings, plan, isFir
     fd.append("clientId",       clientId);
     fd.append("printerId",      printerId);
     fd.append("filamentId",     filamentId);
-    fd.append("filamentGrams",  String(filamentGrams));
+    fd.append("filamentGrams",  String(effectiveGrams));
     fd.append("printHours",     String(printHours));
     fd.append("profitMargin",   String(effectiveMargin));
     fd.append("paintingHours",  String(paintingHours));
@@ -433,7 +441,7 @@ export function Calculator({ printers, filaments, clients, settings, plan, isFir
                 </select>
                 {printer && <p className="text-xs text-text-muted mt-1">{formatBRL(printerCostPerHour)}/hora · {printer.powerWatts}W</p>}
               </Field>
-              <Field label="Filamento" tip="Custo calculado por grama com base no preço por kg cadastrado.">
+              <Field label={isResin ? "Resina" : "Filamento"} tip="Custo calculado por grama com base no preço por kg cadastrado.">
                 <select value={filamentId} onChange={(e) => setFilamentId(e.target.value)} className={selectCls}>
                   {filaments.map((f) => (
                     <option key={f.id} value={f.id}>
@@ -441,15 +449,33 @@ export function Calculator({ printers, filaments, clients, settings, plan, isFir
                     </option>
                   ))}
                 </select>
-                {filament && <p className="text-xs text-text-muted mt-1">{formatBRL(filament.costPerKg / 1000)}/g</p>}
+                {filament && (
+                  <p className="text-xs text-text-muted mt-1">
+                    {formatBRL(filament.costPerKg / 1000)}/g
+                    {isResin && ` · densidade ${resinDensity} g/mL`}
+                  </p>
+                )}
               </Field>
-              <Field label="Peso do filamento (g)" tip="Gramas que a peça vai consumir — veja no slicer (Bambu Studio, Cura, etc.).">
-                <div className="relative">
-                  <input type="number" min={0} step={1} value={filamentGrams}
-                    onChange={(e) => setFilamentGrams(Number(e.target.value))} className={inputCls} />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-text-muted">g</span>
-                </div>
-              </Field>
+              {isResin ? (
+                <Field label="Volume de resina (mL)" tip="mL que a peça vai consumir — veja no Chitubox após o fatiamento.">
+                  <div className="relative">
+                    <input type="number" min={0} step={1} value={resinMl}
+                      onChange={(e) => setResinMl(Number(e.target.value))} className={inputCls} />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-text-muted">mL</span>
+                  </div>
+                  <p className="text-xs text-text-muted mt-1">
+                    ≈ {(resinMl * resinDensity).toFixed(1)}g · {formatBRL((resinMl * resinDensity / 1000) * (filament?.costPerKg ?? 0))}
+                  </p>
+                </Field>
+              ) : (
+                <Field label="Peso do filamento (g)" tip="Gramas que a peça vai consumir — veja no slicer (Bambu Studio, Cura, etc.).">
+                  <div className="relative">
+                    <input type="number" min={0} step={1} value={filamentGrams}
+                      onChange={(e) => setFilamentGrams(Number(e.target.value))} className={inputCls} />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-text-muted">g</span>
+                  </div>
+                </Field>
+              )}
               <Field label="Tempo de impressão (h)" tip="Horas totais estimadas pelo slicer.">
                 <div className="relative">
                   <input type="number" min={0} step={0.5} value={printHours}
@@ -600,8 +626,13 @@ export function Calculator({ printers, filaments, clients, settings, plan, isFir
               {breakdown ? (
                 <>
                   <div className="flex flex-col gap-2.5">
-                    <CostRow label="Filamento" value={breakdown.filamentCost}
-                      sub={`${filamentGrams}g × ${formatBRL((filament?.costPerKg ?? 0) / 1000)}/g`} />
+                    <CostRow
+                      label={isResin ? "Resina" : "Filamento"}
+                      value={breakdown.filamentCost}
+                      sub={isResin
+                        ? `${resinMl}mL × ${resinDensity}g/mL = ${effectiveGrams.toFixed(1)}g × ${formatBRL((filament?.costPerKg ?? 0) / 1000)}/g`
+                        : `${filamentGrams}g × ${formatBRL((filament?.costPerKg ?? 0) / 1000)}/g`}
+                    />
                     <CostRow label="Energia elétrica" value={breakdown.energyCost}
                       sub={`${printHours}h × ${printer?.powerWatts}W × R$${settings.energyCostKwh}/kWh`} />
                     <CostRow label="Desgaste impressora" value={breakdown.printerCost}

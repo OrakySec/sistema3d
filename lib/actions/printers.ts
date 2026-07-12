@@ -10,6 +10,7 @@ import { z } from "zod";
 const printerSchema = z.object({
   name:                 z.string().min(2),
   model:                z.string().optional(),
+  printerType:          z.enum(["FDM", "RESIN"]).default("FDM"),
   powerWatts:           z.coerce.number().positive(),
   purchasePrice:        z.coerce.number().positive(),
   estimatedHours:       z.coerce.number().positive(),

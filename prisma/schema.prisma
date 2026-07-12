@@ -92,6 +92,11 @@ enum FilamentType {
   OTHER
 }
 
+enum PrinterType {
+  FDM
+  RESIN
+}
+
 // ─────────────────────────────────────────────────────────────
 // USUÁRIOS & AUTH
 // ─────────────────────────────────────────────────────────────
@@ -256,6 +261,7 @@ model Printer {
   user               User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   name               String // Ex: "Bambu Lab X1C"
   model              String? // Ex: "X1C"
+  printerType        PrinterType @default(FDM)
   powerWatts         Float // Consumo em watts
   purchasePrice      Float // Preço de compra em R$
   estimatedHours     Float   @default(5000) // Vida útil em horas
@@ -490,6 +496,7 @@ model Filament {
   purchasedGrams Float // Gramas compradas originalmente
   currentGrams   Float // Saldo atual
   costPerKg      Float // R$/kg
+  density        Float        @default(1.0) // g/mL — relevante para resina (Chitubox mostra mL)
   lowStockAlert  Float        @default(200) // Alerta em gramas
   rating         Int? // 1-5
   ratingNote     String?
