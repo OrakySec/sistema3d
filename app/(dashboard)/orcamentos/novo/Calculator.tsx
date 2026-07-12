@@ -4,14 +4,14 @@ import { useState, useMemo, useTransition } from "react";
 import Link from "next/link";
 import {
   ChevronLeft, Calculator as CalcIcon, Package, Printer as PrinterIcon,
-  TrendingUp, Calendar, Plus, Trash2, Copy, Send, Save, Info, User, X, Loader2,
+  TrendingUp, Calendar, Plus, Trash2, Copy, Send, Save, Info, User, X, Loader2, Lock,
 } from "lucide-react";
 import { calculateQuote, formatBRL, marginFromDirectPrice, type QuoteBreakdown } from "@/lib/calculations";
 import { InfoTip } from "@/components/shared/InfoTip";
 import { createQuote, updateQuote } from "@/lib/actions/quotes";
 import { createClientQuick } from "@/lib/actions/clients";
 import { UpgradeModal } from "@/components/shared/UpgradeModal";
-import type { Plan, LimitKey } from "@/lib/plans";
+import { PLAN_LIMITS, type Plan, type LimitKey } from "@/lib/plans";
 
 // ─── Props vindo do Server Component ─────────────────────────
 
@@ -244,7 +244,11 @@ export function Calculator({ printers, filaments, clients, settings, plan, isFir
         : 0)
     : 0;
 
+  const versionLimit = PLAN_LIMITS[plan].quoteVersions; // -1 = ilimitado
+  const canAddVersion = versionLimit === -1 || versions.length < versionLimit;
+
   function addVersion() {
+    if (!canAddVersion) { setUpgradeOpen(true); return; }
     setVersions((vs) => [...vs, { id: crypto.randomUUID(), label: `Versão ${vs.length + 2}`, paintingHours: 0, profitMargin, breakdown: null }]);
   }
 
@@ -611,8 +615,14 @@ export function Calculator({ printers, filaments, clients, settings, plan, isFir
               </div>
             ))}
             <button onClick={addVersion}
-              className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border py-2.5 text-sm font-medium text-text-secondary transition-colors hover:border-primary hover:text-primary">
-              <Plus className="h-4 w-4" /> Adicionar versão
+              className={`flex w-full items-center justify-center gap-2 rounded-lg border border-dashed py-2.5 text-sm font-medium transition-colors ${
+                canAddVersion
+                  ? "border-border text-text-secondary hover:border-primary hover:text-primary"
+                  : "border-primary/30 text-primary/60 hover:border-primary hover:text-primary"
+              }`}>
+              {canAddVersion
+                ? <><Plus className="h-4 w-4" /> Adicionar versão</>
+                : <><Lock className="h-4 w-4" /> Adicionar versão — upgrade necessário</>}
             </button>
           </Section>
         </div>

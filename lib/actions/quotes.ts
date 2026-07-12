@@ -3,7 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { calculateQuote } from "@/lib/calculations";
-import { checkLimit } from "@/lib/limits";
+import { checkLimit, checkFeature } from "@/lib/limits";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -48,10 +48,14 @@ export async function createQuote(formData: FormData) {
   const limitCheck = await checkLimit(userId, "quotesPerMonth", monthCount);
   if (!limitCheck.allowed) return { error: "LIMIT_EXCEEDED", key: "quotesPerMonth", plan: limitCheck.plan, limit: limitCheck.limit };
 
-  // Parsear versões adicionais
+  // Parsear e limitar versões adicionais conforme plano
   let parsedVersions: z.infer<typeof versionSchema>[] = [];
   if (versionsRaw) {
     try { parsedVersions = z.array(versionSchema).parse(JSON.parse(versionsRaw)); } catch {}
+  }
+  const versionLimitCheck = await checkLimit(userId, "quoteVersions", parsedVersions.length);
+  if (!versionLimitCheck.allowed) {
+    parsedVersions = parsedVersions.slice(0, Math.max(0, versionLimitCheck.limit - 1));
   }
 
   const [printer, filament, settings] = await Promise.all([

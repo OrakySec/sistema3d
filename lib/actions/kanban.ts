@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { sendWhatsAppMessage, normalizePhone, interpolate, isSilentHour } from "@/lib/whatsapp";
+import { checkFeature } from "@/lib/limits";
 
 type KanbanColumn = "WAITING" | "APPROVED" | "PRINTING" | "POST_PROD" | "READY" | "DELIVERED" | "CANCELLED";
 type PrintStatus  = "QUEUED" | "STARTED" | "PAUSED" | "RESUMED" | "CANCELLED" | "COMPLETED";
@@ -102,9 +103,10 @@ export async function moveKanbanCard(cardId: string, toColumn: KanbanColumn) {
   // Dispara automações WhatsApp em colunas relevantes
   const WA_COLUMNS: KanbanColumn[] = ["PRINTING", "POST_PROD", "READY", "DELIVERED"];
   if (WA_COLUMNS.includes(toColumn)) {
-    const [settings, user] = await Promise.all([
+    const [settings, user, hasWhatsapp] = await Promise.all([
       prisma.userSettings.findUnique({ where: { userId } }),
       prisma.user.findUnique({ where: { id: userId }, select: { evolutionInstance: true } }),
+      checkFeature(userId, "whatsapp"),
     ]);
 
     const clientPhone = card.quote?.client?.whatsapp ?? null;
@@ -112,6 +114,7 @@ export async function moveKanbanCard(cardId: string, toColumn: KanbanColumn) {
     const pedidoRef   = card.quote?.pieceName ?? "seu pedido";
 
     if (
+      hasWhatsapp &&
       settings?.whatsappAutoEnabled &&
       user?.evolutionInstance &&
       clientPhone &&

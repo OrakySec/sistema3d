@@ -113,6 +113,34 @@ const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: "assinatura",  label: "Assinatura",  icon: Zap },
 ];
 
+function FeatureGate({ allowed, feature, requiredPlan, children }: {
+  allowed: boolean;
+  feature: string;
+  requiredPlan: string;
+  children: React.ReactNode;
+}) {
+  if (allowed) return <>{children}</>;
+  return (
+    <div className="relative rounded-xl border border-primary/20 bg-primary-subtle/30 p-6 text-center">
+      <div className="flex flex-col items-center gap-3">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-subtle border border-primary/20">
+          <Zap className="h-6 w-6 text-primary" />
+        </div>
+        <div>
+          <p className="font-semibold text-text-primary">{feature} não disponível no seu plano</p>
+          <p className="mt-1 text-sm text-text-muted">Disponível no plano <span className="font-semibold text-primary">{requiredPlan}</span> ou superior.</p>
+        </div>
+        <a
+          href="/configuracoes?tab=assinatura"
+          className="flex items-center gap-2 rounded-lg gradient-primary px-4 py-2 text-sm font-semibold text-white hover:opacity-90 transition-opacity"
+        >
+          <Zap className="h-4 w-4" /> Ver planos
+        </a>
+      </div>
+    </div>
+  );
+}
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="mb-8">
@@ -433,34 +461,36 @@ export function ConfiguracoesClient({ initialUser, initialSettings, infinitypayH
             />
           </Section>
 
-          <Section title="Link de pagamento">
-            <SettingToggle
-              label="Link de pagamento embutido"
-              description="O cliente pode pagar uma entrada diretamente no link de aprovação via InfinityPay."
-              info="Quando ativado, o link inclui um botão de pagamento. Você define o percentual de entrada."
-              enabled={s.paymentLinkEnabled}
-              onChange={(v) => set("paymentLinkEnabled", v)}
-              disabled={!infinitypayHandle}
-              disabledReason="⚠ Configure seu InfinityTag em Integrações antes de ativar."
-            >
-              <div className="flex items-center gap-3">
-                <label className="text-sm text-text-secondary whitespace-nowrap">Entrada de:</label>
-                <div className="relative w-28">
-                  <input type="number" min={10} max={100} step={5} value={s.paymentDepositPercent}
-                    onChange={(e) => set("paymentDepositPercent", Number(e.target.value))}
-                    className={inputCls} />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-text-muted">%</span>
+          <FeatureGate allowed={PLAN_LIMITS[plan].payment} feature="Link de pagamento" requiredPlan="Pro">
+            <Section title="Link de pagamento">
+              <SettingToggle
+                label="Link de pagamento embutido"
+                description="O cliente pode pagar uma entrada diretamente no link de aprovação via InfinityPay."
+                info="Quando ativado, o link inclui um botão de pagamento. Você define o percentual de entrada."
+                enabled={s.paymentLinkEnabled}
+                onChange={(v) => set("paymentLinkEnabled", v)}
+                disabled={!infinitypayHandle}
+                disabledReason="⚠ Configure seu InfinityTag em Integrações antes de ativar."
+              >
+                <div className="flex items-center gap-3">
+                  <label className="text-sm text-text-secondary whitespace-nowrap">Entrada de:</label>
+                  <div className="relative w-28">
+                    <input type="number" min={10} max={100} step={5} value={s.paymentDepositPercent}
+                      onChange={(e) => set("paymentDepositPercent", Number(e.target.value))}
+                      className={inputCls} />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-text-muted">%</span>
+                  </div>
+                  <span className="text-xs text-text-muted">do valor total</span>
                 </div>
-                <span className="text-xs text-text-muted">do valor total</span>
-              </div>
-            </SettingToggle>
-          </Section>
+              </SettingToggle>
+            </Section>
+          </FeatureGate>
         </>
       )}
 
       {/* ─── WhatsApp ──────────────────────────────────────── */}
       {tab === "whatsapp" && (
-        <>
+        <FeatureGate allowed={PLAN_LIMITS[plan].whatsapp} feature="WhatsApp automático" requiredPlan="Pro">
           <Section title="Conexão">
             <WhatsAppConnect />
           </Section>
@@ -658,7 +688,7 @@ export function ConfiguracoesClient({ initialUser, initialSettings, infinitypayH
               </div>
             </SettingToggle>
           </Section>
-        </>
+        </FeatureGate>
       )}
 
       {/* ─── Estoque ───────────────────────────────────────── */}
@@ -747,7 +777,7 @@ export function ConfiguracoesClient({ initialUser, initialSettings, infinitypayH
 
       {/* ─── Portfólio ─────────────────────────────────────── */}
       {tab === "portfolio" && (
-        <>
+        <FeatureGate allowed={PLAN_LIMITS[plan].portfolio} feature="Portfólio público" requiredPlan="Estúdio">
           <Section title="Página pública">
             <SettingToggle
               label="Portfólio público ativado"
@@ -788,7 +818,7 @@ export function ConfiguracoesClient({ initialUser, initialSettings, infinitypayH
               disabledReason="⚠ Ative o portfólio público primeiro."
             />
           </Section>
-        </>
+        </FeatureGate>
       )}
 
       {/* ─── Assinatura ────────────────────────────────────── */}

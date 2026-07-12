@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
+import { checkFeature } from "@/lib/limits";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -65,6 +66,32 @@ export async function saveSettings(data: z.infer<typeof settingsSchema>) {
   if (!parsed.success) return { error: "Dados inválidos." };
 
   const { businessName, whatsapp, city, infinitypayHandle, ...settingsData } = parsed.data;
+
+  // Bloqueia features pagas para planos sem acesso
+  const [hasWhatsapp, hasPayment, hasPortfolio] = await Promise.all([
+    checkFeature(userId, "whatsapp"),
+    checkFeature(userId, "payment"),
+    checkFeature(userId, "portfolio"),
+  ]);
+
+  if (!hasWhatsapp) {
+    settingsData.whatsappAutoEnabled  = false;
+    settingsData.autoReplyEnabled     = false;
+    settingsData.quoteReminderEnabled = false;
+    settingsData.followupEnabled      = false;
+    settingsData.npsEnabled           = false;
+    settingsData.productionMessage    = undefined;
+    settingsData.postProdMessage      = undefined;
+    settingsData.readyMessage         = undefined;
+  }
+  if (!hasPayment) {
+    settingsData.paymentLinkEnabled = false;
+  }
+  if (!hasPortfolio) {
+    settingsData.portfolioEnabled             = false;
+    settingsData.portfolioLeadFormEnabled     = false;
+    settingsData.portfolioTestimonialsEnabled = false;
+  }
 
   await prisma.$transaction([
     // Atualiza perfil do usuário
