@@ -71,8 +71,8 @@ function FilamentDialog({ filament, onClose, onLimitExceeded }: {
   }
 
   return (
-    <CrudDialog title={filament ? "Editar Filamento" : "Novo Filamento"}
-      subtitle={filament ? filament.name : "Cadastre um filamento para controle de estoque e custo"}
+    <CrudDialog title={filament ? "Editar Material" : "Novo Material"}
+      subtitle={filament ? filament.name : "Cadastre um material para controle de estoque e custo"}
       icon={Package} onClose={onClose} size="lg">
       <form onSubmit={handleSubmit(onSubmit)}>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -142,7 +142,7 @@ function FilamentDialog({ filament, onClose, onLimitExceeded }: {
           </FormField>
         </div>
         <DialogActions onClose={onClose} loading={pending}
-          submitLabel={filament ? "Salvar alterações" : "Cadastrar filamento"} />
+          submitLabel={filament ? "Salvar alterações" : "Cadastrar material"} />
       </form>
     </CrudDialog>
   );
@@ -178,7 +178,7 @@ export function EstoqueClient({
   });
 
   function handleDelete(id: string) {
-    if (!confirm("Remover este filamento?")) return;
+    if (!confirm("Remover este material?")) return;
     startTransition(() => deleteFilament(id));
   }
   function handleDuplicate(f: Filament) {
@@ -203,12 +203,12 @@ export function EstoqueClient({
     <>
       <div className="mb-6 flex items-center justify-between gap-4">
         <div>
-          <h1 className="font-display text-2xl font-bold text-text-primary">Estoque de Filamentos</h1>
-          <p className="mt-0.5 text-sm text-text-secondary">{initialFilaments.length} filamentos cadastrados</p>
+          <h1 className="font-display text-2xl font-bold text-text-primary">Estoque de Materiais</h1>
+          <p className="mt-0.5 text-sm text-text-secondary">{initialFilaments.length} materiais cadastrados</p>
         </div>
         <button onClick={openNew}
           className="flex items-center gap-2 rounded-lg gradient-primary px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90">
-          <Plus className="h-4 w-4" /> Novo Filamento
+          <Plus className="h-4 w-4" /> Novo Material
         </button>
       </div>
 
@@ -216,7 +216,7 @@ export function EstoqueClient({
         <div className="mb-5 flex items-start gap-3 rounded-xl border border-warning/30 bg-warning-subtle px-5 py-4">
           <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-warning" />
           <div>
-            <p className="text-sm font-semibold text-text-primary">{lowStock.length} filamento(s) com estoque baixo</p>
+            <p className="text-sm font-semibold text-text-primary">{lowStock.length} material(is) com estoque baixo</p>
             <p className="mt-0.5 text-xs text-text-secondary">{lowStock.map((f) => f.name).join(" · ")}</p>
           </div>
         </div>
@@ -225,7 +225,7 @@ export function EstoqueClient({
       <div className="mb-5 grid grid-cols-3 gap-3">
         <div className="rounded-xl border border-border bg-surface p-4 text-center">
           <p className="font-display text-2xl font-bold text-text-primary">{initialFilaments.length}</p>
-          <p className="text-xs text-text-muted mt-0.5">filamentos ativos</p>
+          <p className="text-xs text-text-muted mt-0.5">materiais ativos</p>
         </div>
         <div className="rounded-xl border border-warning/30 bg-warning-subtle p-4 text-center">
           <p className="font-display text-2xl font-bold text-warning">{lowStock.length}</p>
@@ -258,7 +258,7 @@ export function EstoqueClient({
 
       <div className="rounded-xl border border-border bg-surface overflow-hidden">
         <div className="hidden grid-cols-[32px_1fr_80px_80px_1fr_120px_80px] items-center gap-4 border-b border-border px-5 py-3 text-xs font-medium text-text-muted sm:grid">
-          <span /><span>Filamento</span><span>Tipo</span><span>Saldo</span><span>Barra</span><span>Custo/g</span><span />
+          <span /><span>Material</span><span>Tipo</span><span>Saldo</span><span>Barra</span><span>Custo/g</span><span />
         </div>
         <div className="divide-y divide-border">
           {filtered.map((f) => {
@@ -290,7 +290,7 @@ export function EstoqueClient({
                   {(f.costPerKg / 1000).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}/g
                 </span>
                 <div className="hidden sm:flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 justify-end">
-                  <button onClick={() => handleDuplicate(f)} title="Duplicar filamento"
+                  <button onClick={() => handleDuplicate(f)} title="Duplicar material"
                     className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted hover:bg-surface hover:text-primary transition-colors">
                     <Copy className="h-3.5 w-3.5" />
                   </button>
@@ -306,7 +306,7 @@ export function EstoqueClient({
               </div>
             );
             return locked
-              ? <LockedCard key={f.id} label="filamento">{row}</LockedCard>
+              ? <LockedCard key={f.id} label="material">{row}</LockedCard>
               : <div key={f.id}>{row}</div>;
           })}
         </div>
