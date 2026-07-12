@@ -273,10 +273,14 @@ model Printer {
   purchasePrice      Float // Preço de compra em R$
   estimatedHours     Float   @default(5000) // Vida útil em horas
   monthlyMaintenance Float   @default(0) // Custo mensal de manutenção R$
+  // Tela LCD (apenas resina)
+  lcdLifetimeHours   Float?  // Vida útil da tela LCD em horas (ex: 2000)
+  lcdPrice           Float?  // Custo de reposição da tela LCD em R$
   active             Boolean @default(true)
 
   // Calculado automaticamente
   // costPerHour = (purchasePrice / estimatedHours) + (monthlyMaintenance / horasMes)
+  // + (lcdPrice / lcdLifetimeHours) se RESIN
 
   // Estatísticas
   totalHours   Float @default(0)

@@ -82,6 +82,37 @@ export async function POST(req: Request) {
       });
       break;
     }
+
+    case "invoice.payment_failed": {
+      const invoice = event.data.object as Stripe.Invoice;
+      const customerId = typeof invoice.customer === "string" ? invoice.customer : invoice.customer?.id;
+      if (!customerId) break;
+
+      const user = await prisma.user.findFirst({ where: { stripeCustomerId: customerId } });
+      if (!user) break;
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data:  { subscriptionStatus: "PAST_DUE" },
+      });
+      break;
+    }
+
+    case "invoice.payment_succeeded": {
+      const invoice = event.data.object as Stripe.Invoice;
+      const customerId = typeof invoice.customer === "string" ? invoice.customer : invoice.customer?.id;
+      if (!customerId) break;
+
+      const user = await prisma.user.findFirst({ where: { stripeCustomerId: customerId } });
+      if (!user || user.subscriptionStatus !== "PAST_DUE") break;
+
+      // Pagamento regularizado — volta para ACTIVE
+      await prisma.user.update({
+        where: { id: user.id },
+        data:  { subscriptionStatus: "ACTIVE" },
+      });
+      break;
+    }
   }
 
   return NextResponse.json({ received: true });

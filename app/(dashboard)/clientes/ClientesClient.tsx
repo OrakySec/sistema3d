@@ -8,7 +8,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { CrudDialog, FormField, DialogActions, inputCls } from "@/components/shared/CrudDialog";
 import { createClient, updateClient, deleteClient } from "@/lib/actions/clients";
 import { UpgradeModal } from "@/components/shared/UpgradeModal";
-import type { Plan, LimitKey } from "@/lib/plans";
+import { LockedCard } from "@/components/shared/LockedCard";
+import { PLAN_LIMITS, type Plan, type LimitKey } from "@/lib/plans";
 
 const clientSchema = z.object({
   name:     z.string().min(2, "Mínimo 2 caracteres"),
@@ -118,6 +119,11 @@ export function ClientesClient({
   const [upgradeLimitKey, setUpgradeLimitKey] = useState<LimitKey>("clients");
   const [, startTransition]         = useTransition();
 
+  const clientLimit = PLAN_LIMITS[plan].clients;
+  const lockedIds = clientLimit === -1
+    ? new Set<string>()
+    : new Set(initialClients.slice(clientLimit).map((c) => c.id));
+
   const filtered = initialClients.filter((c) =>
     c.name.toLowerCase().includes(search.toLowerCase()) ||
     c.city?.toLowerCase().includes(search.toLowerCase()) ||
@@ -159,8 +165,10 @@ export function ClientesClient({
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {filtered.map((c) => (
-          <div key={c.id}
+        {filtered.map((c) => {
+          const locked = lockedIds.has(c.id);
+          const card = (
+          <div
             className="group rounded-xl border border-border bg-surface p-5 transition-all hover:border-primary/40 hover:shadow-card">
             <div className="mb-3 flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
@@ -209,7 +217,11 @@ export function ClientesClient({
               </div>
             </div>
           </div>
-        ))}
+          );
+          return locked
+            ? <LockedCard key={c.id} label="cliente">{card}</LockedCard>
+            : <div key={c.id}>{card}</div>;
+        })}
 
         {filtered.length === 0 && (
           <div className="col-span-full flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-20">

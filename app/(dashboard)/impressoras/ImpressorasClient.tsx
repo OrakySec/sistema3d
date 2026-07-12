@@ -10,7 +10,8 @@ import { createPrinter, updatePrinter, togglePrinterActive, deletePrinter } from
 import { formatBRL } from "@/lib/calculations";
 import { InfoTip } from "@/components/shared/InfoTip";
 import { UpgradeModal } from "@/components/shared/UpgradeModal";
-import type { Plan, LimitKey } from "@/lib/plans";
+import { LockedCard } from "@/components/shared/LockedCard";
+import { PLAN_LIMITS, type Plan, type LimitKey } from "@/lib/plans";
 
 const printerSchema = z.object({
   name:               z.string().min(2, "Nome obrigatório"),
@@ -20,6 +21,8 @@ const printerSchema = z.object({
   purchasePrice:      z.coerce.number().positive("Informe o preço"),
   estimatedHours:     z.coerce.number().positive("Informe a vida útil"),
   monthlyMaintenance: z.coerce.number().min(0),
+  lcdLifetimeHours:   z.coerce.number().positive().optional(),
+  lcdPrice:           z.coerce.number().min(0).optional(),
   totalHours:         z.coerce.number().min(0).optional(),
 });
 type PrinterForm = z.infer<typeof printerSchema>;
@@ -27,12 +30,23 @@ type PrinterForm = z.infer<typeof printerSchema>;
 interface PrinterModel {
   id: string; name: string; model?: string | null; printerType: "FDM" | "RESIN";
   powerWatts: number; purchasePrice: number; estimatedHours: number;
-  monthlyMaintenance: number; active: boolean; totalHours: number;
+  monthlyMaintenance: number; lcdLifetimeHours?: number | null;
+  lcdPrice?: number | null; active: boolean; totalHours: number;
   totalPrints: number; successCount: number;
 }
 
-function cph(p: PrinterModel)  { return p.purchasePrice / p.estimatedHours + p.monthlyMaintenance / 730; }
+function lcdCph(p: PrinterModel) {
+  if (p.printerType !== "RESIN" || !p.lcdLifetimeHours || !p.lcdPrice) return 0;
+  return p.lcdPrice / p.lcdLifetimeHours;
+}
+function cph(p: PrinterModel) {
+  return p.purchasePrice / p.estimatedHours + p.monthlyMaintenance / 730 + lcdCph(p);
+}
 function lifeUsed(p: PrinterModel) { return Math.min(100, (p.totalHours / p.estimatedHours) * 100); }
+function lcdUsed(p: PrinterModel) {
+  if (!p.lcdLifetimeHours) return null;
+  return Math.min(100, (p.totalHours / p.lcdLifetimeHours) * 100);
+}
 function successRate(p: PrinterModel) { return p.totalPrints === 0 ? 100 : Math.round((p.successCount / p.totalPrints) * 100); }
 
 function PrinterDialog({ printer, onClose, onLimitExceeded }: {
@@ -45,8 +59,15 @@ function PrinterDialog({ printer, onClose, onLimitExceeded }: {
       ? { ...printer, model: printer.model ?? undefined }
       : { printerType: "FDM" as const, estimatedHours: 5000, monthlyMaintenance: 0 },
   });
-  const [pp, eh, mm] = [watch("purchasePrice") ?? 0, watch("estimatedHours") ?? 5000, watch("monthlyMaintenance") ?? 0];
-  const previewCph = pp / eh + mm / 730;
+  const watchedType = watch("printerType");
+  const isResin = watchedType === "RESIN";
+  const [pp, eh, mm, lcdH, lcdP] = [
+    watch("purchasePrice") ?? 0, watch("estimatedHours") ?? 5000,
+    watch("monthlyMaintenance") ?? 0,
+    watch("lcdLifetimeHours") ?? 0, watch("lcdPrice") ?? 0,
+  ];
+  const lcdCostPerHour = isResin && lcdH > 0 && lcdP > 0 ? lcdP / lcdH : 0;
+  const previewCph = pp / eh + mm / 730 + lcdCostPerHour;
 
   function onSubmit(data: PrinterForm) {
     const fd = new FormData();
@@ -108,6 +129,31 @@ function PrinterDialog({ printer, onClose, onLimitExceeded }: {
               <input {...register("monthlyMaintenance")} type="number" min={0} step={0.01} placeholder="50" className={`${inputCls} pl-8`} />
             </div>
           </FormField>
+          {/* Tela LCD — apenas resina */}
+          {isResin && (
+            <div className="sm:col-span-2 rounded-xl border border-info/30 bg-info-subtle p-4">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-info">
+                Tela LCD / FEP
+              </p>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField label="Vida útil da tela (h)" error={errors.lcdLifetimeHours?.message}>
+                  <div className="relative">
+                    <input {...register("lcdLifetimeHours")} type="number" min={100} placeholder="2000" className={inputCls} />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-text-muted">h</span>
+                  </div>
+                  <p className="mt-1 text-xs text-text-muted">Telas LCD duram em média 2000h. Verifique o manual da sua impressora.</p>
+                </FormField>
+                <FormField label="Custo de reposição" error={errors.lcdPrice?.message}>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-text-muted">R$</span>
+                    <input {...register("lcdPrice")} type="number" min={0} step={0.01} placeholder="250" className={`${inputCls} pl-8`} />
+                  </div>
+                  <p className="mt-1 text-xs text-text-muted">Preço da tela LCD de reposição da sua impressora.</p>
+                </FormField>
+              </div>
+            </div>
+          )}
+
           <div className="flex flex-col gap-1.5 sm:col-span-2">
             <div className="flex items-center gap-1.5">
               <label className="text-sm font-medium text-text-primary">Horas já usadas</label>
@@ -131,6 +177,7 @@ function PrinterDialog({ printer, onClose, onLimitExceeded }: {
             <div className="text-right text-xs text-text-muted">
               <p>Depreciação: {formatBRL(pp / eh)}/h</p>
               <p>Manutenção: {formatBRL(mm / 730)}/h</p>
+              {lcdCostPerHour > 0 && <p className="text-info">Tela LCD: {formatBRL(lcdCostPerHour)}/h</p>}
             </div>
           </div>
         )}
@@ -180,12 +227,14 @@ export function ImpressorasClient({
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-        {initialPrinters.map((p) => {
+        {initialPrinters.map((p, idx) => {
+          const limit  = PLAN_LIMITS[plan].printers;
+          const locked = limit !== -1 && idx >= limit;
           const c = cph(p);
           const life = lifeUsed(p);
           const sr   = successRate(p);
           const lifeColor = life > 80 ? "bg-error" : life > 60 ? "bg-warning" : "bg-success";
-          return (
+          const card = (
             <div key={p.id}
               className={`group rounded-xl border bg-surface p-5 transition-all hover:shadow-card ${p.active ? "border-border hover:border-primary/40" : "border-border opacity-60"}`}>
               <div className="mb-4 flex items-start justify-between gap-3">
@@ -250,8 +299,26 @@ export function ImpressorasClient({
                 </div>
                 {life > 80 && <p className="mt-1 text-xs text-error">⚠ Vida útil quase no limite.</p>}
               </div>
+              {p.printerType === "RESIN" && lcdUsed(p) !== null && (
+                <div className="mt-2">
+                  <div className="mb-1.5 flex items-center justify-between">
+                    <span className="text-xs text-text-muted">Tela LCD</span>
+                    <span className="text-xs font-medium text-text-secondary">{p.totalHours} / {p.lcdLifetimeHours}h</span>
+                  </div>
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-border">
+                    <div
+                      className={`h-full rounded-full transition-all ${(lcdUsed(p) ?? 0) > 80 ? "bg-error" : (lcdUsed(p) ?? 0) > 50 ? "bg-warning" : "bg-info"}`}
+                      style={{ width: `${lcdUsed(p)}%` }}
+                    />
+                  </div>
+                  {(lcdUsed(p) ?? 0) > 80 && <p className="mt-1 text-xs text-error">⚠ Tela LCD quase no limite.</p>}
+                </div>
+              )}
             </div>
           );
+          return locked
+            ? <LockedCard key={p.id} label="impressora">{card}</LockedCard>
+            : <div key={p.id}>{card}</div>;
         })}
         <button onClick={openNew}
           className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border p-10 text-center transition-colors hover:border-primary hover:bg-primary-subtle">

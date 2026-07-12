@@ -8,7 +8,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { CrudDialog, FormField, DialogActions, inputCls, selectCls } from "@/components/shared/CrudDialog";
 import { createFilament, updateFilament, deleteFilament } from "@/lib/actions/filaments";
 import { UpgradeModal } from "@/components/shared/UpgradeModal";
-import type { Plan, LimitKey } from "@/lib/plans";
+import { LockedCard } from "@/components/shared/LockedCard";
+import { PLAN_LIMITS, type Plan, type LimitKey } from "@/lib/plans";
 
 const FILAMENT_TYPES = ["PLA", "PETG", "ABS", "ASA", "TPU", "NYLON", "RESIN", "OTHER"] as const;
 
@@ -162,6 +163,11 @@ export function EstoqueClient({
   const [upgradeLimitKey, setUpgradeLimitKey] = useState<LimitKey>("filaments");
   const [, startTransition]           = useTransition();
 
+  const filamentLimit = PLAN_LIMITS[plan].filaments;
+  const lockedIds = filamentLimit === -1
+    ? new Set<string>()
+    : new Set(initialFilaments.slice(filamentLimit).map((f) => f.id));
+
   const lowStock   = initialFilaments.filter((f) => f.currentGrams <= f.lowStockAlert && f.active);
   const totalValue = initialFilaments.reduce((a, f) => a + (f.currentGrams / 1000) * f.costPerKg, 0);
 
@@ -256,11 +262,12 @@ export function EstoqueClient({
         </div>
         <div className="divide-y divide-border">
           {filtered.map((f) => {
+            const locked = lockedIds.has(f.id);
             const pct = Math.min(100, (f.currentGrams / f.purchasedGrams) * 100);
             const isLow = f.currentGrams <= f.lowStockAlert;
             const barColor = isLow ? "bg-error" : pct > 50 ? "bg-success" : "bg-warning";
-            return (
-              <div key={f.id}
+            const row = (
+              <div
                 className="group grid grid-cols-[32px_1fr] sm:grid-cols-[32px_1fr_80px_80px_1fr_120px_80px] items-center gap-4 px-5 py-3.5 hover:bg-surface-hover transition-colors">
                 <div className="h-7 w-7 shrink-0 rounded-full border-2 border-border shadow-sm"
                   style={{ backgroundColor: f.colorHex ?? "#666" }} title={f.color ?? ""} />
@@ -298,6 +305,9 @@ export function EstoqueClient({
                 </div>
               </div>
             );
+            return locked
+              ? <LockedCard key={f.id} label="filamento">{row}</LockedCard>
+              : <div key={f.id}>{row}</div>;
           })}
         </div>
       </div>

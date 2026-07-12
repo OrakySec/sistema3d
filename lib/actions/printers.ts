@@ -15,6 +15,8 @@ const printerSchema = z.object({
   purchasePrice:        z.coerce.number().positive(),
   estimatedHours:       z.coerce.number().positive(),
   monthlyMaintenance:   z.coerce.number().min(0),
+  lcdLifetimeHours:     z.coerce.number().positive().optional(),
+  lcdPrice:             z.coerce.number().min(0).optional(),
   totalHours:           z.coerce.number().min(0).optional(),
 });
 

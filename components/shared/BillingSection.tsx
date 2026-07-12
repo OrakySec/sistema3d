@@ -4,7 +4,7 @@ import { useState } from "react";
 import {
   Zap, CreditCard, Loader2, CheckCircle2, X,
   FileText, Users, Printer, Package, MessageCircle,
-  DollarSign, Image, Infinity,
+  DollarSign, Image, Infinity, AlertTriangle, XCircle,
 } from "lucide-react";
 import { PLAN_LIMITS, PLAN_NAMES, PLAN_PRICES, type Plan } from "@/lib/plans";
 
@@ -147,10 +147,60 @@ export function BillingSection({ plan, subscriptionStatus, currentPeriodEnd, has
           </span>
         </div>
 
-        {periodEnd && (
+        {/* Alerta PAST_DUE */}
+        {subscriptionStatus === "PAST_DUE" && (
+          <div className="mb-4 rounded-lg border border-error/30 bg-error-subtle p-3">
+            <div className="flex items-start gap-2.5">
+              <AlertTriangle className="h-4 w-4 text-error mt-0.5 shrink-0" />
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-error">Pagamento em atraso</p>
+                <p className="mt-0.5 text-xs text-text-secondary">
+                  A última cobrança não foi processada. Atualize seu cartão para não perder o acesso.
+                </p>
+                <button
+                  onClick={handlePortal}
+                  disabled={!!loading}
+                  className="mt-2 flex items-center gap-1.5 rounded-lg bg-error px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90 transition-opacity disabled:opacity-60"
+                >
+                  {loading === "portal" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <><CreditCard className="h-3.5 w-3.5" /> Atualizar forma de pagamento</>}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Alerta CANCELED */}
+        {subscriptionStatus === "CANCELED" && (
+          <div className="mb-4 rounded-lg border border-border bg-surface-hover p-3">
+            <div className="flex items-start gap-2.5">
+              <XCircle className="h-4 w-4 text-text-muted mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-text-secondary">Assinatura cancelada</p>
+                <p className="mt-0.5 text-xs text-text-muted">
+                  {periodEnd ? `Seu acesso permanece até ${periodEnd}.` : "Você perdeu o acesso aos recursos do plano."}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Data de renovação / acesso */}
+        {periodEnd && subscriptionStatus === "ACTIVE" && (
           <p className="text-xs text-text-muted mb-4 flex items-center gap-1.5">
             <CheckCircle2 className="h-3.5 w-3.5 text-success" />
             Próxima cobrança: {periodEnd}
+          </p>
+        )}
+        {periodEnd && subscriptionStatus === "CANCELED" && (
+          <p className="text-xs text-text-muted mb-4 flex items-center gap-1.5">
+            <XCircle className="h-3.5 w-3.5 text-text-muted" />
+            Acesso até: {periodEnd}
+          </p>
+        )}
+        {periodEnd && subscriptionStatus === "PAST_DUE" && (
+          <p className="text-xs text-error mb-4 flex items-center gap-1.5">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            Cobrança em atraso desde: {periodEnd}
           </p>
         )}
 
@@ -170,16 +220,27 @@ export function BillingSection({ plan, subscriptionStatus, currentPeriodEnd, has
           ))}
         </div>
 
-        {hasStripeId && (
-          <button
-            onClick={handlePortal}
-            disabled={!!loading}
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border border-border py-2 text-sm text-text-secondary hover:bg-surface-hover transition-colors disabled:opacity-60"
-          >
-            {loading === "portal"
-              ? <Loader2 className="h-4 w-4 animate-spin" />
-              : <><CreditCard className="h-4 w-4" /> Gerenciar assinatura</>}
-          </button>
+        {hasStripeId && subscriptionStatus !== "PAST_DUE" && (
+          <div className="mt-4 flex flex-col gap-2">
+            <button
+              onClick={handlePortal}
+              disabled={!!loading}
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-border py-2 text-sm text-text-secondary hover:bg-surface-hover transition-colors disabled:opacity-60"
+            >
+              {loading === "portal"
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : <><CreditCard className="h-4 w-4" /> Gerenciar assinatura</>}
+            </button>
+            {subscriptionStatus === "ACTIVE" && (
+              <button
+                onClick={handlePortal}
+                disabled={!!loading}
+                className="flex w-full items-center justify-center gap-2 rounded-lg border border-border py-2 text-sm text-text-muted hover:bg-surface-hover hover:text-error transition-colors disabled:opacity-60"
+              >
+                <X className="h-4 w-4" /> Cancelar assinatura
+              </button>
+            )}
+          </div>
         )}
       </div>
 

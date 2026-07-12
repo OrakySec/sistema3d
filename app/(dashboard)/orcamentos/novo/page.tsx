@@ -15,7 +15,7 @@ export default async function NovoOrcamentoPage() {
     prisma.printer.findMany({
       where:   { userId, active: true },
       orderBy: { name: "asc" },
-      select:  { id: true, name: true, powerWatts: true, purchasePrice: true, estimatedHours: true, monthlyMaintenance: true },
+      select:  { id: true, name: true, powerWatts: true, purchasePrice: true, estimatedHours: true, monthlyMaintenance: true, printerType: true, lcdLifetimeHours: true, lcdPrice: true },
     }),
     prisma.filament.findMany({
       where:   { userId, active: true },

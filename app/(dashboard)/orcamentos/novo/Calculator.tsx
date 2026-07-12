@@ -18,6 +18,7 @@ import type { Plan, LimitKey } from "@/lib/plans";
 interface PrinterOption {
   id: string; name: string; powerWatts: number;
   purchasePrice: number; estimatedHours: number; monthlyMaintenance: number;
+  printerType?: string; lcdLifetimeHours?: number | null; lcdPrice?: number | null;
 }
 interface FilamentOption {
   id: string; name: string; costPerKg: number; colorHex?: string | null;
@@ -236,7 +237,11 @@ export function Calculator({ printers, filaments, clients, settings, plan, isFir
   }, [expirationDays]);
 
   const printerCostPerHour = printer
-    ? printer.purchasePrice / printer.estimatedHours + printer.monthlyMaintenance / 730
+    ? printer.purchasePrice / printer.estimatedHours +
+      printer.monthlyMaintenance / 730 +
+      (printer.printerType === "RESIN" && printer.lcdLifetimeHours && printer.lcdPrice
+        ? printer.lcdPrice / printer.lcdLifetimeHours
+        : 0)
     : 0;
 
   function addVersion() {
