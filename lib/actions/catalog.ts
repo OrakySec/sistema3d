@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
+import { checkFeature } from "@/lib/limits";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -36,6 +37,10 @@ async function getUserId() {
 
 export async function publishToCatalog(formData: FormData) {
   const userId = await getUserId();
+
+  const allowed = await checkFeature(userId, "portfolio");
+  if (!allowed) return { error: "FEATURE_BLOCKED" };
+
   const parsed = catalogSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: "Dados inválidos." };
 

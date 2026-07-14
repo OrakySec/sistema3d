@@ -60,6 +60,10 @@ export async function createClientQuick(name: string, whatsapp?: string) {
   const userId = await getUserId();
   if (!name?.trim()) return { error: "Nome obrigatório." };
 
+  const count = await prisma.client.count({ where: { userId } });
+  const check = await checkLimit(userId, "clients", count);
+  if (check === "LIMIT_EXCEEDED") return { error: "LIMIT_EXCEEDED" };
+
   const client = await prisma.client.create({
     data: { userId, name: name.trim(), whatsapp: sanitizePhone(whatsapp), tags: [] },
     select: { id: true, name: true },

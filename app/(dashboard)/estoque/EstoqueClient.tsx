@@ -192,7 +192,10 @@ export function EstoqueClient({
     fd.append("currentGrams", String(f.purchasedGrams)); // cópia começa com saldo cheio
     fd.append("costPerKg", String(f.costPerKg));
     fd.append("lowStockAlert", String(f.lowStockAlert));
-    startTransition(async () => { await createFilament(fd); });
+    startTransition(async () => {
+      const result = await createFilament(fd);
+      if (result?.error === "LIMIT_EXCEEDED") handleLimitExceeded("filaments");
+    });
   }
   function openEdit(f: Filament) { setEditing(f); setDialogOpen(true); }
   function openNew()              { setEditing(undefined); setDialogOpen(true); }

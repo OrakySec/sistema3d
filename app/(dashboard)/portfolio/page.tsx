@@ -4,6 +4,9 @@ import { redirect } from "next/navigation";
 import { BookOpen } from "lucide-react";
 import { NovoOrcamentoButton } from "@/components/shared/NovoOrcamentoButton";
 import { CatalogClient } from "./CatalogClient";
+import { effectivePlan } from "@/lib/plans";
+import { PLAN_LIMITS } from "@/lib/plans";
+import { Lock } from "lucide-react";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Catálogo" };
@@ -11,6 +14,13 @@ export const metadata: Metadata = { title: "Catálogo" };
 export default async function PortfolioPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
+
+  const user = await prisma.user.findUnique({
+    where:  { id: session.user.id },
+    select: { plan: true, subscriptionStatus: true },
+  });
+
+  const plan = effectivePlan(user?.plan ?? "FREE", user?.subscriptionStatus ?? null);
 
   const products = await prisma.catalogProduct.findMany({
     where: { userId: session.user.id },
@@ -25,6 +35,23 @@ export default async function PortfolioPage() {
       quantity: true, createdAt: true,
     },
   });
+
+  const portfolioAllowed = PLAN_LIMITS[plan].portfolio;
+
+  if (!portfolioAllowed) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-24 text-center">
+        <Lock className="mb-4 h-12 w-12 text-text-muted" />
+        <h2 className="font-display text-xl font-bold text-text-primary">Recurso bloqueado</h2>
+        <p className="mt-2 max-w-sm text-sm text-text-secondary">
+          O Catálogo está disponível apenas no plano Estúdio. Faça upgrade para acessar.
+        </p>
+        <a href="/configuracoes?tab=assinatura" className="mt-6 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:opacity-90 transition-opacity">
+          Ver planos
+        </a>
+      </div>
+    );
+  }
 
   return (
     <>

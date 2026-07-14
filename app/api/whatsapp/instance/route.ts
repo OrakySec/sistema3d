@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth }         from "@/auth";
 import { prisma }       from "@/lib/prisma";
+import { checkFeature } from "@/lib/limits";
 import QRCode           from "qrcode";
 
 const EVO_URL = process.env.EVOLUTION_API_URL!;
@@ -64,6 +65,9 @@ export async function GET() {
 export async function POST() {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+
+  const allowed = await checkFeature(session.user.id, "whatsapp");
+  if (!allowed) return NextResponse.json({ error: "Plano não permite WhatsApp." }, { status: 403 });
 
   const instanceName = `user_${session.user.id.slice(0, 8)}`;
 
