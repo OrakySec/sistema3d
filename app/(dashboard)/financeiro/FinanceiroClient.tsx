@@ -646,24 +646,46 @@ export function FinanceiroClient({ initialRevenues, initialExpenses, categories 
   }, [rangeRevenues, rangeExpenses, prevRevenues, prevExpenses]);
 
   // ── Dados dos gráficos calculados no client (responsivos ao intervalo) ──
+  const isSingleMonth = useMemo(() =>
+    rangeFrom.getFullYear() === rangeTo.getFullYear() &&
+    rangeFrom.getMonth()    === rangeTo.getMonth(),
+  [rangeFrom, rangeTo]);
+
   const monthlyData = useMemo(() => {
-    // Gera buckets mensais cobrindo rangeFrom → rangeTo
     const buckets: { month: string; receita: number; despesas: number; lucro: number }[] = [];
-    const cursor = new Date(rangeFrom.getFullYear(), rangeFrom.getMonth(), 1);
-    const end    = new Date(rangeTo.getFullYear(), rangeTo.getMonth(), 1);
-    while (cursor <= end) {
-      buckets.push({ month: MONTH_LABELS[cursor.getMonth()], receita: 0, despesas: 0, lucro: 0 });
-      cursor.setMonth(cursor.getMonth() + 1);
+
+    if (isSingleMonth) {
+      // Buckets diários para o mês selecionado
+      const daysInMonth = new Date(rangeFrom.getFullYear(), rangeFrom.getMonth() + 1, 0).getDate();
+      for (let d = 1; d <= daysInMonth; d++) {
+        buckets.push({ month: String(d), receita: 0, despesas: 0, lucro: 0 });
+      }
+      const dayOf = (dateStr: string) => {
+        const d = new Date(dateStr);
+        if (d.getFullYear() !== rangeFrom.getFullYear() || d.getMonth() !== rangeFrom.getMonth()) return null;
+        return d.getDate() - 1;
+      };
+      rangeRevenues.forEach((r) => { const i = dayOf(r.date); if (i !== null) { buckets[i].receita += r.grossAmount; buckets[i].lucro += r.netProfit; } });
+      rangeExpenses.forEach((e) => { const i = dayOf(e.date); if (i !== null) buckets[i].despesas += e.amount; });
+    } else {
+      // Buckets mensais para ranges multi-mês
+      const cursor = new Date(rangeFrom.getFullYear(), rangeFrom.getMonth(), 1);
+      const end    = new Date(rangeTo.getFullYear(), rangeTo.getMonth(), 1);
+      while (cursor <= end) {
+        buckets.push({ month: MONTH_LABELS[cursor.getMonth()], receita: 0, despesas: 0, lucro: 0 });
+        cursor.setMonth(cursor.getMonth() + 1);
+      }
+      const bucketOf = (dateStr: string) => {
+        const d = new Date(dateStr);
+        const diffMonths = (d.getFullYear() - rangeFrom.getFullYear()) * 12 + (d.getMonth() - rangeFrom.getMonth());
+        return diffMonths >= 0 && diffMonths < buckets.length ? diffMonths : null;
+      };
+      rangeRevenues.forEach((r) => { const i = bucketOf(r.date); if (i !== null) { buckets[i].receita += r.grossAmount; buckets[i].lucro += r.netProfit; } });
+      rangeExpenses.forEach((e) => { const i = bucketOf(e.date); if (i !== null) buckets[i].despesas += e.amount; });
     }
-    const bucketOf = (dateStr: string) => {
-      const d = new Date(dateStr);
-      const diffMonths = (d.getFullYear() - rangeFrom.getFullYear()) * 12 + (d.getMonth() - rangeFrom.getMonth());
-      return diffMonths >= 0 && diffMonths < buckets.length ? diffMonths : null;
-    };
-    rangeRevenues.forEach((r) => { const i = bucketOf(r.date); if (i !== null) { buckets[i].receita += r.grossAmount; buckets[i].lucro += r.netProfit; } });
-    rangeExpenses.forEach((e) => { const i = bucketOf(e.date); if (i !== null) buckets[i].despesas += e.amount; });
+
     return buckets;
-  }, [rangeRevenues, rangeExpenses, rangeFrom, rangeTo]);
+  }, [rangeRevenues, rangeExpenses, rangeFrom, rangeTo, isSingleMonth]);
 
   const profitData = useMemo(() =>
     monthlyData.map((b) => ({
