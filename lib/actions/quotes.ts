@@ -27,6 +27,7 @@ const createQuoteSchema = z.object({
   profitMargin:   z.coerce.number().min(0),
   paintingHours:  z.coerce.number().min(0),
   expirationDays: z.coerce.number().min(1).max(30).default(5),
+  deliveryDays:   z.coerce.number().min(0).optional(),
   versions:       z.string().optional(), // JSON serializado
   status:         z.enum(["DRAFT", "SENT"]).default("SENT"),
 });
@@ -38,7 +39,7 @@ export async function createQuote(formData: FormData) {
   const parsed = createQuoteSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: "Dados inválidos." };
 
-  const { expirationDays, versions: versionsRaw, status, ...data } = parsed.data;
+  const { expirationDays, deliveryDays, versions: versionsRaw, status, ...data } = parsed.data;
   const userId = session.user.id;
 
   // Verificar limite de orçamentos do plano
@@ -119,6 +120,7 @@ export async function createQuote(formData: FormData) {
       paintingHours:  data.paintingHours,
       ...breakdown,
       expiresAt,
+      deliveryDays: deliveryDays ?? null,
       publicToken: crypto.randomBytes(16).toString("hex"),
       status,
       versions: versionData.length > 0 ? { create: versionData } : undefined,
@@ -143,7 +145,7 @@ export async function updateQuote(quoteId: string, formData: FormData) {
   const parsed = createQuoteSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: "Dados inválidos." };
 
-  const { expirationDays, versions: versionsRaw, ...data } = parsed.data;
+  const { expirationDays, deliveryDays, versions: versionsRaw, ...data } = parsed.data;
   const userId = session.user.id;
 
   let parsedVersions: z.infer<typeof versionSchema>[] = [];
@@ -206,6 +208,7 @@ export async function updateQuote(quoteId: string, formData: FormData) {
       paintingHours: data.paintingHours,
       ...breakdown,
       expiresAt,
+      deliveryDays: deliveryDays ?? null,
       versions: parsedVersions.length > 0 ? {
         create: parsedVersions.map((v, i) => {
           const vb = calculateQuote({ ...calcParams, profitMargin: v.profitMargin, paintingHours: v.paintingHours });

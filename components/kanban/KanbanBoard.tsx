@@ -338,12 +338,22 @@ function SortableCard({
           {card.tags?.map((t) => (
             <span key={t} className="rounded-full border border-border px-2 py-0.5 text-xs text-text-muted">{t}</span>
           ))}
-          {card.dueDate && (
-            <span className="flex items-center gap-1 text-xs text-text-muted">
-              <Clock className="h-3 w-3" />
-              {card.dueDate}
-            </span>
-          )}
+          {card.dueDate && (() => {
+            const [d, m, y] = card.dueDate!.split("/");
+            const due  = new Date(`${y}-${m}-${d}T23:59:59`);
+            const diff = Math.ceil((due.getTime() - Date.now()) / 86_400_000);
+            const color = diff < 0 ? "text-error" : diff <= 2 ? "text-warning" : "text-text-muted";
+            const label = diff < 0
+              ? `${Math.abs(diff)}d atrasado`
+              : diff === 0 ? "Vence hoje"
+              : `${diff}d restantes`;
+            return (
+              <span className={`flex items-center gap-1 text-xs font-medium ${color}`}>
+                <Clock className="h-3 w-3" />
+                {label}
+              </span>
+            );
+          })()}
         </div>
         <span className="shrink-0 text-xs font-semibold text-text-primary">
           {card.totalPrice.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}

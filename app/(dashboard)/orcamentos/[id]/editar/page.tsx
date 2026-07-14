@@ -71,6 +71,7 @@ export default async function EditarOrcamentoPage({ params }: { params: Promise<
         profitMargin:  quote.profitMargin,
         paintingHours: quote.paintingHours,
         expirationDays,
+        deliveryDays: quote.deliveryDays ?? null,
         versions: quote.versions.map((v) => {
           const d = v.details as Record<string, number> | null;
           return {

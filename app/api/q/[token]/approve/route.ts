@@ -43,11 +43,16 @@ export async function POST(
         date:           new Date(),
       },
     }),
-    // Mover kanban para "Aprovado"
+    // Mover kanban para "Aprovado" e calcular dueDate se houver prazo
     ...(quote.kanbanCard
       ? [prisma.kanbanCard.update({
           where: { id: quote.kanbanCard.id },
-          data:  { column: "APPROVED" },
+          data:  {
+            column:  "APPROVED",
+            dueDate: quote.deliveryDays
+              ? new Date(Date.now() + quote.deliveryDays * 24 * 60 * 60 * 1000)
+              : undefined,
+          },
         })]
       : []),
   ]);

@@ -41,6 +41,7 @@ interface InitialData {
   profitMargin:  number;
   paintingHours: number;
   expirationDays: number;
+  deliveryDays?:  number | null;
   versions: { label: string; description: string; paintingHours: number; profitMargin: number }[];
 }
 
@@ -149,6 +150,7 @@ export function Calculator({ printers, filaments, clients, settings, plan, isFir
   const [targetPrice, setTargetPrice]     = useState<number>(0); // usado no modo "price"
   const [paintingHours, setPaintingHours] = useState(initialData?.paintingHours ?? 0);
   const [expirationDays, setExpirationDays] = useState(initialData?.expirationDays ?? settings.quoteExpirationDays);
+  const [deliveryDays, setDeliveryDays]     = useState<number | "">(initialData?.deliveryDays ?? "");
 
   // Versões — calcula breakdown inicial para versões carregadas na edição
   const [versions, setVersions] = useState<QuoteVersion[]>(() => {
@@ -300,6 +302,7 @@ export function Calculator({ printers, filaments, clients, settings, plan, isFir
     fd.append("profitMargin",   String(effectiveMargin));
     fd.append("paintingHours",  String(paintingHours));
     fd.append("expirationDays", String(expirationDays));
+    if (deliveryDays !== "") fd.append("deliveryDays", String(deliveryDays));
     fd.append("status",         status);
     if (versions.length > 0) {
       fd.append("versions", JSON.stringify(versions.map((v) => ({
@@ -559,8 +562,8 @@ export function Calculator({ printers, filaments, clients, settings, plan, isFir
             </div>
           </Section>
 
-          {/* Validade */}
-          <Section title="Validade do Orçamento" icon={Calendar}>
+          {/* Validade e Prazo de Entrega */}
+          <Section title="Validade e Prazo" icon={Calendar}>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Prazo de validade" tip="Após esse prazo, o link público expira e o cliente não consegue mais aprovar.">
                 <div className="flex items-center gap-3">
@@ -576,6 +579,26 @@ export function Calculator({ printers, filaments, clients, settings, plan, isFir
                   </div>
                 </div>
                 <p className="text-xs text-text-muted">Expira em: <span className="font-medium text-text-secondary">{expirationDate}</span></p>
+              </Field>
+
+              <Field label="Prazo de entrega" tip="Dias corridos contados a partir da aprovação do cliente. Aparece como contagem regressiva no Kanban.">
+                <div className="relative">
+                  <input
+                    type="number"
+                    min={1}
+                    max={365}
+                    placeholder="Ex: 7"
+                    value={deliveryDays}
+                    onChange={(e) => setDeliveryDays(e.target.value === "" ? "" : Number(e.target.value))}
+                    className={inputCls}
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-text-muted">dias</span>
+                </div>
+                <p className="text-xs text-text-muted">
+                  {deliveryDays !== "" && deliveryDays > 0
+                    ? `Entrega em até ${deliveryDays} dia${deliveryDays > 1 ? "s" : ""} após aprovação`
+                    : "Opcional — deixe em branco se não tiver prazo"}
+                </p>
               </Field>
             </div>
           </Section>

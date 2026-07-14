@@ -381,6 +381,9 @@ model Quote {
   depositPaid    Boolean @default(false)
   depositAmount  Float?
 
+  // Prazo de entrega
+  deliveryDays Int? // Dias úteis após aprovação
+
   // PDF
   pdfUrl String?
 
