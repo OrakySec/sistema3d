@@ -48,7 +48,7 @@ export default async function DashboardLayout({
       </div>
 
       {/* Bottom nav — só mobile */}
-      <BottomNav />
+      <BottomNav plan={plan} />
       <SupportButton />
     </div>
   );
