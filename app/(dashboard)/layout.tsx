@@ -5,6 +5,7 @@ import { PastDueBanner } from "@/components/shared/PastDueBanner";
 import { SupportButton } from "@/components/shared/SupportButton";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { effectivePlan } from "@/lib/plans";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -20,18 +21,21 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   const session = await auth();
-  const isPastDue = session?.user?.id
-    ? (await prisma.user.findUnique({
+  const dbUser = session?.user?.id
+    ? await prisma.user.findUnique({
         where:  { id: session.user.id },
-        select: { subscriptionStatus: true },
-      }))?.subscriptionStatus === "PAST_DUE"
-    : false;
+        select: { subscriptionStatus: true, plan: true },
+      })
+    : null;
+
+  const isPastDue = dbUser?.subscriptionStatus === "PAST_DUE";
+  const plan = effectivePlan(dbUser?.plan ?? "FREE", dbUser?.subscriptionStatus ?? null);
 
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Sidebar — oculta no mobile */}
       <div className="hidden md:flex">
-        <Sidebar />
+        <Sidebar plan={plan} />
       </div>
 
       {/* Conteúdo principal */}

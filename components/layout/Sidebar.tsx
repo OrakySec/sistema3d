@@ -16,58 +16,29 @@ import {
   ChevronLeft,
   ChevronRight,
   Zap,
+  Lock,
 } from "lucide-react";
 import { useState } from "react";
+import type { Plan } from "@/lib/plans";
+import { PLAN_LIMITS } from "@/lib/plans";
 
 const navItems = [
-  {
-    href: "/dashboard",
-    label: "Dashboard",
-    icon: LayoutDashboard,
-    exact: true,
-  },
-  {
-    href: "/orcamentos",
-    label: "Orçamentos",
-    icon: FileText,
-  },
-  {
-    href: "/producao",
-    label: "Produção",
-    icon: Layers,
-  },
-  {
-    href: "/clientes",
-    label: "Clientes",
-    icon: Users,
-  },
-  {
-    href: "/financeiro",
-    label: "Financeiro",
-    icon: DollarSign,
-  },
-  {
-    href: "/estoque",
-    label: "Estoque",
-    icon: Package,
-  },
-  {
-    href: "/impressoras",
-    label: "Impressoras",
-    icon: Printer,
-  },
-  {
-    href: "/portfolio",
-    label: "Catálogo",
-    icon: BookOpen,
-  },
+  { href: "/dashboard",   label: "Dashboard",   icon: LayoutDashboard, exact: true },
+  { href: "/orcamentos",  label: "Orçamentos",  icon: FileText },
+  { href: "/producao",    label: "Produção",     icon: Layers },
+  { href: "/clientes",    label: "Clientes",    icon: Users },
+  { href: "/financeiro",  label: "Financeiro",  icon: DollarSign },
+  { href: "/estoque",     label: "Estoque",     icon: Package },
+  { href: "/impressoras", label: "Impressoras", icon: Printer },
+  { href: "/portfolio",   label: "Catálogo",    icon: BookOpen, requiredPlan: "STUDIO" as Plan },
 ];
 
 interface SidebarProps {
   className?: string;
+  plan?: Plan;
 }
 
-export function Sidebar({ className }: SidebarProps) {
+export function Sidebar({ className, plan = "FREE" }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -111,6 +82,10 @@ export function Sidebar({ className }: SidebarProps) {
         {navItems.map((item) => {
           const active = isActive(item.href, item.exact);
           const Icon = item.icon;
+          const planOrder: Plan[] = ["FREE", "PRO", "STUDIO"];
+          const locked = item.requiredPlan
+            ? planOrder.indexOf(plan) < planOrder.indexOf(item.requiredPlan)
+            : false;
 
           return (
             <Link
@@ -121,6 +96,8 @@ export function Sidebar({ className }: SidebarProps) {
                 "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150",
                 active
                   ? "bg-primary-subtle text-primary"
+                  : locked
+                  ? "text-text-muted hover:bg-surface-hover"
                   : "text-text-secondary hover:bg-surface-hover hover:text-text-primary",
                 collapsed && "justify-center px-0"
               )}
@@ -137,6 +114,16 @@ export function Sidebar({ className }: SidebarProps) {
               {/* Indicador ativo */}
               {active && !collapsed && (
                 <div className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />
+              )}
+              {/* Badge de plano bloqueado */}
+              {locked && !collapsed && (
+                <span className="ml-auto flex items-center gap-1 rounded-md bg-surface-hover px-1.5 py-0.5 text-[10px] font-semibold text-text-muted">
+                  <Lock className="h-2.5 w-2.5" />
+                  {item.requiredPlan === "STUDIO" ? "Estúdio" : "Pro"}
+                </span>
+              )}
+              {locked && collapsed && (
+                <Lock className="absolute bottom-0.5 right-0.5 h-3 w-3 text-text-muted" />
               )}
             </Link>
           );

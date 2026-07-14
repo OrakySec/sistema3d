@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   User, DollarSign, FileText, MessageCircle,
-  Bell, Shield, Save, Loader2, Zap,
+  Bell, Shield, Save, Loader2, Zap, Lock,
   Copy, CheckCircle2, Plug, ExternalLink,
 } from "lucide-react";
 import { SettingToggle } from "@/components/shared/SettingToggle";
@@ -102,14 +102,14 @@ function MsgField({ value, onChange, placeholder, vars }: {
 
 type TabId = "perfil" | "custos" | "orcamentos" | "whatsapp" | "estoque" | "portfolio" | "integracoes" | "assinatura";
 
-const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
+const TABS: { id: TabId; label: string; icon: React.ElementType; badge?: string }[] = [
   { id: "perfil",      label: "Perfil",      icon: User },
   { id: "custos",      label: "Custos",      icon: DollarSign },
   { id: "orcamentos",  label: "Orçamentos",  icon: FileText },
-  { id: "whatsapp",    label: "WhatsApp",    icon: MessageCircle },
+  { id: "whatsapp",    label: "WhatsApp",    icon: MessageCircle, badge: "Pro" },
   { id: "estoque",     label: "Estoque",     icon: Bell },
-  { id: "portfolio",   label: "Portfólio",   icon: Shield },
-  { id: "integracoes", label: "Integrações", icon: Plug },
+  { id: "portfolio",   label: "Portfólio",   icon: Shield,        badge: "Estúdio" },
+  { id: "integracoes", label: "Integrações", icon: Plug,          badge: "Pro" },
   { id: "assinatura",  label: "Assinatura",  icon: Zap },
 ];
 
@@ -342,18 +342,32 @@ export function ConfiguracoesClient({ initialUser, initialSettings, infinitypayH
 
       {/* Tabs */}
       <div className="mb-7 flex flex-wrap gap-1 rounded-xl border border-border bg-surface p-1">
-        {TABS.map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            onClick={() => setTab(id)}
-            className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-              tab === id ? "bg-primary text-white" : "text-text-secondary hover:text-text-primary"
-            }`}
-          >
-            <Icon className="h-3.5 w-3.5" />
-            {label}
-          </button>
-        ))}
+        {TABS.map(({ id, label, icon: Icon, badge }) => {
+          const isActive = tab === id;
+          const isLocked = badge === "Pro"
+            ? !PLAN_LIMITS[plan].payment
+            : badge === "Estúdio"
+            ? !PLAN_LIMITS[plan].portfolio
+            : false;
+          return (
+            <button
+              key={id}
+              onClick={() => setTab(id)}
+              className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                isActive ? "bg-primary text-white" : "text-text-secondary hover:text-text-primary"
+              }`}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {label}
+              {isLocked && badge && !isActive && (
+                <span className="flex items-center gap-0.5 rounded bg-surface-hover px-1.5 py-0.5 text-[10px] font-semibold text-text-muted">
+                  <Lock className="h-2.5 w-2.5" />
+                  {badge}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {/* ─── Perfil ────────────────────────────────────────── */}
@@ -714,6 +728,7 @@ export function ConfiguracoesClient({ initialUser, initialSettings, infinitypayH
 
       {/* ─── Integrações ───────────────────────────────────── */}
       {tab === "integracoes" && (
+        <FeatureGate allowed={PLAN_LIMITS[plan].payment} feature="Link de pagamento" requiredPlan="Pro">
         <Section title="Pagamentos">
           <div className="rounded-xl border border-border bg-surface p-5">
             <div className="flex items-start gap-4 mb-5">
@@ -773,6 +788,7 @@ export function ConfiguracoesClient({ initialUser, initialSettings, infinitypayH
             </div>
           </div>
         </Section>
+        </FeatureGate>
       )}
 
       {/* ─── Portfólio ─────────────────────────────────────── */}
