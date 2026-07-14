@@ -90,15 +90,18 @@ export async function moveKanbanCard(cardId: string, toColumn: KanbanColumn) {
   });
   if (!card) return { error: "Card não encontrado." };
 
-  await prisma.$transaction([
-    prisma.kanbanCard.update({
-      where: { id: cardId },
-      data:  { column: toColumn },
-    }),
-    prisma.kanbanHistory.create({
+  await prisma.kanbanCard.update({
+    where: { id: cardId },
+    data:  { column: toColumn },
+  });
+
+  try {
+    await prisma.kanbanHistory.create({
       data: { cardId, fromColumn: card.column, toColumn },
-    }),
-  ]);
+    });
+  } catch (e) {
+    console.error("[kanban] falha ao criar histórico:", e);
+  }
 
   // Dispara automações WhatsApp em colunas relevantes
   const WA_COLUMNS: KanbanColumn[] = ["PRINTING", "POST_PROD", "READY", "DELIVERED"];
