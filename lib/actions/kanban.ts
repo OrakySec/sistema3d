@@ -17,6 +17,63 @@ async function getUserId() {
   return session.user.id;
 }
 
+// ─── Automação WhatsApp por coluna ───────────────────────────
+
+interface CardForWA {
+  quote?: {
+    pieceName?: string | null;
+    client?: { name?: string | null; whatsapp?: string | null } | null;
+  } | null;
+}
+
+async function triggerWhatsAppAutomation(userId: string, card: CardForWA, toColumn: KanbanColumn) {
+  const WA_COLUMNS: KanbanColumn[] = ["PRINTING", "POST_PROD", "READY", "DELIVERED"];
+  if (!WA_COLUMNS.includes(toColumn)) return;
+
+  const [settings, user, hasWhatsapp] = await Promise.all([
+    prisma.userSettings.findUnique({ where: { userId } }),
+    prisma.user.findUnique({ where: { id: userId }, select: { evolutionInstance: true } }),
+    checkFeature(userId, "whatsapp"),
+  ]);
+
+  const clientPhone = card.quote?.client?.whatsapp ?? null;
+  const clientName  = card.quote?.client?.name ?? "cliente";
+  const pedidoRef   = card.quote?.pieceName ?? "seu pedido";
+
+  if (!hasWhatsapp || !settings?.whatsappAutoEnabled || !user?.evolutionInstance || !clientPhone || !normalizePhone(clientPhone)) return;
+
+  const silent = settings.silentHoursEnabled
+    ? isSilentHour(settings.silentHoursStart, settings.silentHoursEnd)
+    : false;
+  if (silent) return;
+
+  const vars     = { nome: clientName.split(" ")[0], pedido: pedidoRef };
+  const instance = user.evolutionInstance!;
+
+  const immediateMsg: Record<string, string | null | undefined> = {
+    PRINTING:  settings.productionMessage,
+    POST_PROD: settings.postProdMessage,
+    READY:     settings.readyMessage,
+  };
+
+  const msg = immediateMsg[toColumn];
+  if (msg) {
+    await sendWhatsAppMessage({ instanceName: instance, phone: clientPhone, message: interpolate(msg, vars) });
+  }
+
+  if (toColumn === "DELIVERED") {
+    if (settings.followupEnabled && settings.followup7DaysEnabled && settings.followup7DaysMessage) {
+      setTimeout(() => sendWhatsAppMessage({ instanceName: instance, phone: clientPhone, message: interpolate(settings.followup7DaysMessage!, vars) }), 7 * 24 * 60 * 60 * 1000);
+    }
+    if (settings.followupEnabled && settings.followup30DaysEnabled && settings.followup30DaysMessage) {
+      setTimeout(() => sendWhatsAppMessage({ instanceName: instance, phone: clientPhone, message: interpolate(settings.followup30DaysMessage!, vars) }), 30 * 24 * 60 * 60 * 1000);
+    }
+    if (settings.npsEnabled && settings.npsMessage) {
+      setTimeout(() => sendWhatsAppMessage({ instanceName: instance, phone: clientPhone, message: interpolate(settings.npsMessage!, vars) }), (settings.npsDaysAfterDelivery ?? 7) * 24 * 60 * 60 * 1000);
+    }
+  }
+}
+
 export async function deleteKanbanCard(cardId: string) {
   const userId = await getUserId();
   const card = await prisma.kanbanCard.findFirst({ where: { id: cardId, userId } });
@@ -54,7 +111,7 @@ export async function startPrint(cardId: string) {
 
   const card = await prisma.kanbanCard.findFirst({
     where:   { id: cardId, userId },
-    include: { quote: true },
+    include: { quote: { include: { client: true } } },
   });
   if (!card) return { error: "Card não encontrado." };
 
@@ -62,11 +119,11 @@ export async function startPrint(cardId: string) {
     data: {
       userId,
       cardId,
-      printerId:     card.quote?.printerId  ?? null,
-      filamentId:    card.quote?.filamentId ?? null,
+      printerId:      card.quote?.printerId  ?? null,
+      filamentId:     card.quote?.filamentId ?? null,
       estimatedHours: card.quote?.printHours ?? 1,
-      status:        "STARTED",
-      startedAt:     new Date(),
+      status:         "STARTED",
+      startedAt:      new Date(),
     },
   });
 
@@ -76,6 +133,8 @@ export async function startPrint(cardId: string) {
       ? [prisma.kanbanCard.update({ where: { id: cardId }, data: { column: "PRINTING" } })]
       : []),
   ]);
+
+  await triggerWhatsAppAutomation(userId, card, "PRINTING");
 
   revalidatePath("/producao");
   return { ok: true, printLogId: printLog.id };
@@ -103,71 +162,7 @@ export async function moveKanbanCard(cardId: string, toColumn: KanbanColumn) {
     console.error("[kanban] falha ao criar histórico:", e);
   }
 
-  // Dispara automações WhatsApp em colunas relevantes
-  const WA_COLUMNS: KanbanColumn[] = ["PRINTING", "POST_PROD", "READY", "DELIVERED"];
-  if (WA_COLUMNS.includes(toColumn)) {
-    const [settings, user, hasWhatsapp] = await Promise.all([
-      prisma.userSettings.findUnique({ where: { userId } }),
-      prisma.user.findUnique({ where: { id: userId }, select: { evolutionInstance: true } }),
-      checkFeature(userId, "whatsapp"),
-    ]);
-
-    const clientPhone = card.quote?.client?.whatsapp ?? null;
-    const clientName  = card.quote?.client?.name ?? "cliente";
-    const pedidoRef   = card.quote?.pieceName ?? "seu pedido";
-
-    if (
-      hasWhatsapp &&
-      settings?.whatsappAutoEnabled &&
-      user?.evolutionInstance &&
-      clientPhone &&
-      normalizePhone(clientPhone)
-    ) {
-      const silent = settings.silentHoursEnabled
-        ? isSilentHour(settings.silentHoursStart, settings.silentHoursEnd)
-        : false;
-
-      if (!silent) {
-        const vars = { nome: clientName.split(" ")[0], pedido: pedidoRef };
-        const instance = user.evolutionInstance!;
-
-        // Mensagem imediata por coluna
-        const immediateMsg: Record<string, string | null | undefined> = {
-          PRINTING:  settings.productionMessage,
-          POST_PROD: settings.postProdMessage,
-          READY:     settings.readyMessage,
-        };
-
-        const msg = immediateMsg[toColumn];
-        if (msg) {
-          await sendWhatsAppMessage({
-            instanceName: instance,
-            phone:        clientPhone,
-            message:      interpolate(msg, vars),
-          });
-        }
-
-        // Ao entregar: follow-up e NPS agendados
-        if (toColumn === "DELIVERED") {
-          if (settings.followupEnabled && settings.followup7DaysEnabled && settings.followup7DaysMessage) {
-            setTimeout(() => {
-              sendWhatsAppMessage({ instanceName: instance, phone: clientPhone, message: interpolate(settings.followup7DaysMessage!, vars) });
-            }, 7 * 24 * 60 * 60 * 1000);
-          }
-          if (settings.followupEnabled && settings.followup30DaysEnabled && settings.followup30DaysMessage) {
-            setTimeout(() => {
-              sendWhatsAppMessage({ instanceName: instance, phone: clientPhone, message: interpolate(settings.followup30DaysMessage!, vars) });
-            }, 30 * 24 * 60 * 60 * 1000);
-          }
-          if (settings.npsEnabled && settings.npsMessage) {
-            setTimeout(() => {
-              sendWhatsAppMessage({ instanceName: instance, phone: clientPhone, message: interpolate(settings.npsMessage!, vars) });
-            }, (settings.npsDaysAfterDelivery ?? 7) * 24 * 60 * 60 * 1000);
-          }
-        }
-      }
-    }
-  }
+  await triggerWhatsAppAutomation(userId, card, toColumn);
 
   revalidatePath("/producao");
 }
@@ -263,11 +258,11 @@ export async function cancelPrint(data: z.infer<typeof cancelSchema>) {
 }
 
 export async function completePrint(printLogId: string, filamentUsed?: number) {
-  await getUserId();
+  const userId = await getUserId();
 
   const printLog = await prisma.printLog.findUnique({
     where:   { id: printLogId },
-    include: { card: { include: { quote: true } } },
+    include: { card: { include: { quote: { include: { client: true } } } } },
   });
   if (!printLog) return { error: "Impressão não encontrada." };
 
@@ -317,6 +312,11 @@ export async function completePrint(printLogId: string, filamentUsed?: number) {
   }
 
   await Promise.all(updates);
+
+  if (printLog.cardId) {
+    await triggerWhatsAppAutomation(userId, printLog.card!, "POST_PROD");
+  }
+
   revalidatePath("/producao");
   revalidatePath("/estoque");
   revalidatePath("/impressoras");
