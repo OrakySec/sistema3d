@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma }       from "@/lib/prisma";
+import { checkFeature } from "@/lib/limits";
 
 interface Props {
   params: Promise<{ token: string }>;
@@ -17,6 +18,7 @@ export async function POST(_req: Request, { params }: Props) {
       status:        true,
       user: {
         select: {
+          id:                true,
           infinitypayHandle: true,
           settings: {
             select: {
@@ -31,6 +33,9 @@ export async function POST(_req: Request, { params }: Props) {
   if (!quote) return NextResponse.json({ error: "Orçamento não encontrado" }, { status: 404 });
   if (quote.status !== "APPROVED") return NextResponse.json({ error: "Orçamento não aprovado" }, { status: 400 });
   if (!quote.user.infinitypayHandle) return NextResponse.json({ error: "Pagamento não configurado" }, { status: 400 });
+
+  const allowed = await checkFeature(quote.user.id, "payment");
+  if (!allowed) return NextResponse.json({ error: "Plano não permite link de pagamento." }, { status: 403 });
 
   const depositPercent = quote.user.settings?.paymentDepositPercent ?? 50;
   const depositValue   = Math.round(quote.totalPrice * (depositPercent / 100) * 100); // em centavos
