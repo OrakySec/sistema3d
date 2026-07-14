@@ -497,35 +497,41 @@ export function KanbanBoard({ initialCards }: { initialCards: Card[] }) {
     const overId   = over.id as string;
     if (activeId === overId) return;
 
+    // Determina a coluna destino ANTES do setCards (updater roda lazy, não síncrono)
+    const activeC = cards.find((c) => c.id === activeId);
+    if (!activeC) return;
+
     let newColumn: KanbanCol | null = null;
 
-    setCards((prev) => {
-      const activeC = prev.find((c) => c.id === activeId);
-      if (!activeC) return prev;
+    if (COL_ORDER.includes(overId as KanbanCol)) {
+      const dest = overId as KanbanCol;
+      if (activeC.column !== dest) newColumn = dest;
+    } else {
+      const overC = cards.find((c) => c.id === overId);
+      if (overC && activeC.column !== overC.column) newColumn = overC.column;
+    }
 
-      // Solto diretamente sobre uma coluna (useDroppable)
+    setCards((prev) => {
+      const aC = prev.find((c) => c.id === activeId);
+      if (!aC) return prev;
+
       if (COL_ORDER.includes(overId as KanbanCol)) {
-        newColumn = overId as KanbanCol;
-        if (activeC.column === newColumn) return prev;
-        return prev.map((c) => (c.id === activeId ? { ...c, column: newColumn! } : c));
+        if (aC.column === overId) return prev;
+        return prev.map((c) => (c.id === activeId ? { ...c, column: overId as KanbanCol } : c));
       }
 
-      // Solto sobre outro card
-      const overC = prev.find((c) => c.id === overId);
-      if (!overC) return prev;
+      const oC = prev.find((c) => c.id === overId);
+      if (!oC) return prev;
 
-      if (activeC.column === overC.column) {
-        // Reordenação dentro da mesma coluna
-        const colCards = prev.filter((c) => c.column === activeC.column);
-        const others   = prev.filter((c) => c.column !== activeC.column);
+      if (aC.column === oC.column) {
+        const colCards = prev.filter((c) => c.column === aC.column);
+        const others   = prev.filter((c) => c.column !== aC.column);
         const oldIdx   = colCards.findIndex((c) => c.id === activeId);
         const newIdx   = colCards.findIndex((c) => c.id === overId);
         return [...others, ...arrayMove(colCards, oldIdx, newIdx)];
       }
 
-      // Mover para a coluna do card alvo
-      newColumn = overC.column;
-      return prev.map((c) => (c.id === activeId ? { ...c, column: newColumn! } : c));
+      return prev.map((c) => (c.id === activeId ? { ...c, column: oC.column } : c));
     });
 
     if (newColumn) {
