@@ -1,6 +1,20 @@
 "use client";
 
+import { useState, useEffect } from "react";
+
 export function SupportButton() {
+  const [hidden, setHidden] = useState(false);
+
+  useEffect(() => {
+    function handler(e: Event) {
+      setHidden((e as CustomEvent<{ open: boolean }>).detail.open);
+    }
+    window.addEventListener("bottomnav:more", handler);
+    return () => window.removeEventListener("bottomnav:more", handler);
+  }, []);
+
+  if (hidden) return null;
+
   return (
     <a
       href="https://wa.me/5581992321938"

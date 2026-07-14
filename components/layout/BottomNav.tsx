@@ -35,6 +35,11 @@ export function BottomNav({ plan = "FREE" }: BottomNavProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
+  // Notifica o SupportButton quando o menu abre/fecha
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("bottomnav:more", { detail: { open } }));
+  }, [open]);
+
   // Fecha ao navegar
   useEffect(() => { setOpen(false); }, [pathname]);
 
