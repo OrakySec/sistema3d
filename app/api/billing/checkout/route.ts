@@ -34,12 +34,17 @@ export async function POST(req: Request) {
 
   const basePlan = plan.replace("_ANNUAL", "") as "PRO" | "STUDIO";
 
+  const hasAutoCoupon = !isAnnual && !!STRIPE_PROMO_MONTHLY;
+
   const checkoutSession = await stripe.checkout.sessions.create({
     customer:             customerId,
     mode:                 "subscription",
     payment_method_types: ["card"],
     line_items: [{ price: priceId, quantity: 1 }],
-    ...(!isAnnual && STRIPE_PROMO_MONTHLY ? { discounts: [{ coupon: STRIPE_PROMO_MONTHLY }] } : {}),
+    // Se tiver cupom automático aplicado, não pode ter campo de cupom manual (Stripe não permite os dois)
+    ...(hasAutoCoupon
+      ? { discounts: [{ coupon: STRIPE_PROMO_MONTHLY }] }
+      : { allow_promotion_codes: true }),
     success_url: `${appUrl}/configuracoes?billing=success`,
     cancel_url:  `${appUrl}/configuracoes?billing=cancel`,
     metadata:    { userId: session.user.id, plan: basePlan },
