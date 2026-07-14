@@ -35,6 +35,10 @@ export async function POST(req: Request) {
 
       const sub = await stripe.subscriptions.retrieve(s.subscription as string);
 
+      // Na API 2026-06-24.dahlia, current_period_end está em items.data[0]
+      const periodEnd = sub.items.data[0]?.current_period_end;
+      const currentPeriodEnd = periodEnd ? new Date(periodEnd * 1000) : undefined;
+
       const updatedUser = await prisma.user.update({
         where:  { id: userId },
         select: { email: true, name: true, whatsapp: true, city: true },
@@ -42,7 +46,7 @@ export async function POST(req: Request) {
           plan,
           subscriptionStatus:   "ACTIVE",
           stripeSubscriptionId: sub.id,
-          currentPeriodEnd:     new Date((sub as unknown as { current_period_end: number }).current_period_end * 1000),
+          ...(currentPeriodEnd ? { currentPeriodEnd } : {}),
         },
       });
 
@@ -90,7 +94,7 @@ export async function POST(req: Request) {
         data: {
           plan:               plan ?? user.plan,
           subscriptionStatus: sub.status === "active" ? "ACTIVE" : sub.status === "past_due" ? "PAST_DUE" : "CANCELED",
-          currentPeriodEnd:   new Date((sub as unknown as { current_period_end: number }).current_period_end * 1000),
+          currentPeriodEnd:   sub.items.data[0]?.current_period_end ? new Date(sub.items.data[0].current_period_end * 1000) : undefined,
         },
       });
       break;
