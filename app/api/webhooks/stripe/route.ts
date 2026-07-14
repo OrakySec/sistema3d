@@ -46,28 +46,32 @@ export async function POST(req: Request) {
         },
       });
 
-      // Plano e valor para rastreamento
-      const planValues: Record<string, number> = { PRO: 97, STUDIO: 197 };
-      await sendConversionEvent({
-        eventName:      "Subscribe",
-        eventId:        crypto.randomUUID(),
-        eventSourceUrl: `${process.env.NEXT_PUBLIC_APP_URL}/configuracoes`,
-        userData: {
-          email:     updatedUser.email,
-          name:      updatedUser.name,
-          phone:     updatedUser.whatsapp,
-          city:      updatedUser.city,
-          fbc:       null,
-          fbp:       null,
-          clientIp:  null,
-          userAgent: null,
-        },
-        customData: {
-          value:    planValues[plan] ?? 0,
-          currency: "BRL",
-          content_name: plan,
-        },
-      });
+      // Plano e valor para rastreamento (falha silenciosa para não derrubar o webhook)
+      try {
+        const planValues: Record<string, number> = { PRO: 97, STUDIO: 197 };
+        await sendConversionEvent({
+          eventName:      "Subscribe",
+          eventId:        crypto.randomUUID(),
+          eventSourceUrl: `${process.env.NEXT_PUBLIC_APP_URL}/configuracoes`,
+          userData: {
+            email:     updatedUser.email,
+            name:      updatedUser.name,
+            phone:     updatedUser.whatsapp,
+            city:      updatedUser.city,
+            fbc:       null,
+            fbp:       null,
+            clientIp:  null,
+            userAgent: null,
+          },
+          customData: {
+            value:    planValues[plan] ?? 0,
+            currency: "BRL",
+            content_name: plan,
+          },
+        });
+      } catch (e) {
+        console.error("[webhook] sendConversionEvent falhou:", e);
+      }
       break;
     }
 
