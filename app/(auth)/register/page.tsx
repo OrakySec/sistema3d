@@ -81,7 +81,7 @@ export default function RegisterPage() {
           Criar conta grátis
         </h1>
         <p className="mt-2 text-sm text-text-secondary">
-          14 dias de trial sem cartão de crédito.
+          Gerencie sua impressão 3D em um só lugar.
         </p>
       </div>
 
