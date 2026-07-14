@@ -6,7 +6,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Admin — Usuários" };
 
-const ADMIN_EMAIL = "agenciapiko@gmail.com";
+const ADMIN_EMAIL = "orakysec@gmail.com";
 
 const PLAN_BADGE: Record<string, string> = {
   FREE:   "bg-zinc-800 text-zinc-400",
