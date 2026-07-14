@@ -154,7 +154,7 @@ export async function updateQuote(quoteId: string, formData: FormData) {
   }
 
   const versionCheck = await checkLimit(userId, "quoteVersions", parsedVersions.length);
-  if (versionCheck === "LIMIT_EXCEEDED") return { error: "LIMIT_EXCEEDED" };
+  if (!versionCheck.allowed) return { error: "LIMIT_EXCEEDED" };
 
   const [printer, filament, settings] = await Promise.all([
     data.printerId  ? prisma.printer.findFirst({ where: { id: data.printerId, userId } })  : null,
