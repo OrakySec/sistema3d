@@ -40,10 +40,17 @@ services:
       labels:
         - "traefik.enable=true"
         - "traefik.docker.network=YkaroNET"
+        # Router HTTPS (principal)
         - "traefik.http.routers.sistema3d.rule=Host(`app.ferreira3d.com`)"
         - "traefik.http.routers.sistema3d.entrypoints=websecure"
         - "traefik.http.routers.sistema3d.tls.certresolver=letsencryptresolver"
         - "traefik.http.services.sistema3d.loadbalancer.server.port=3000"
+        # Router HTTP → redireciona para HTTPS
+        - "traefik.http.routers.sistema3d-http.rule=Host(`app.ferreira3d.com`)"
+        - "traefik.http.routers.sistema3d-http.entrypoints=web"
+        - "traefik.http.routers.sistema3d-http.middlewares=sistema3d-https-redirect"
+        - "traefik.http.middlewares.sistema3d-https-redirect.redirectscheme.scheme=https"
+        - "traefik.http.middlewares.sistema3d-https-redirect.redirectscheme.permanent=true"
 
   postgres:
     image: postgres:16-alpine
