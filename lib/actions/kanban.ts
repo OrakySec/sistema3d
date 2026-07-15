@@ -27,7 +27,8 @@ interface CardForWA {
 }
 
 async function triggerWhatsAppAutomation(userId: string, card: CardForWA, toColumn: KanbanColumn) {
-  const WA_COLUMNS: KanbanColumn[] = ["PRINTING", "POST_PROD", "READY", "DELIVERED"];
+  // PRINTING é tratado pelo startPrint para evitar disparo duplo
+  const WA_COLUMNS: KanbanColumn[] = ["POST_PROD", "READY", "DELIVERED"];
   if (!WA_COLUMNS.includes(toColumn)) return;
 
   const [settings, user, hasWhatsapp] = await Promise.all([
