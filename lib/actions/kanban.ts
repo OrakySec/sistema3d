@@ -27,8 +27,7 @@ interface CardForWA {
 }
 
 async function triggerWhatsAppAutomation(userId: string, card: CardForWA, toColumn: KanbanColumn) {
-  // PRINTING é tratado pelo startPrint para evitar disparo duplo
-  const WA_COLUMNS: KanbanColumn[] = ["POST_PROD", "READY", "DELIVERED"];
+  const WA_COLUMNS: KanbanColumn[] = ["PRINTING", "POST_PROD", "READY", "DELIVERED"];
   if (!WA_COLUMNS.includes(toColumn)) return;
 
   const [settings, user, hasWhatsapp] = await Promise.all([
@@ -163,7 +162,10 @@ export async function moveKanbanCard(cardId: string, toColumn: KanbanColumn) {
     console.error("[kanban] falha ao criar histórico:", e);
   }
 
-  await triggerWhatsAppAutomation(userId, card, toColumn);
+  // PRINTING é disparado pelo startPrint — evita duplo envio ao arrastar
+  if (toColumn !== "PRINTING") {
+    await triggerWhatsAppAutomation(userId, card, toColumn);
+  }
 
   revalidatePath("/producao");
 }
