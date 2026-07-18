@@ -100,7 +100,7 @@ const PROOF = [
   { label: "Orçamentos em segundos", value: "< 60s" },
   { label: "Sem planilhas", value: "100%" },
   { label: "Aprovação online", value: "1 link" },
-  { label: "Trial grátis", value: "14 dias" },
+  { label: "Suporte via WhatsApp", value: "Incluso" },
 ];
 
 // ─── Mockups de feature ───────────────────────────────────────────────────────
@@ -341,7 +341,7 @@ export default function LandingPage() {
 
         <div className="hero-cta" style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
           <Link href="/register" className="glow-btn" style={{ background: "linear-gradient(135deg, #F97316, #EA6C0A)", color: "#fff", textDecoration: "none", borderRadius: 10, padding: "14px 28px", fontSize: 15, fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
-            Começar grátis — 14 dias
+            Começar grátis
             <ArrowRight size={16} />
           </Link>
           <Link href="/login" style={{ background: "#111113", color: "#FAFAFA", textDecoration: "none", borderRadius: 10, padding: "14px 24px", fontSize: 15, fontWeight: 600, border: "1px solid #27272A", display: "flex", alignItems: "center", gap: 8 }}>
@@ -668,14 +668,14 @@ export default function LandingPage() {
               Comece a gerir com precisão
             </h2>
             <p style={{ color: "#A1A1AA", fontSize: 17, lineHeight: 1.7, marginBottom: 40 }}>
-              14 dias grátis, sem cartão de crédito. Cancele quando quiser. Configure em menos de 5 minutos.
+              Sem cartão de crédito. Cancele quando quiser. Configure em menos de 5 minutos.
             </p>
             <Link href="/register" style={{ display: "inline-flex", alignItems: "center", gap: 10, background: "linear-gradient(135deg, #F97316, #EA6C0A)", color: "#fff", textDecoration: "none", borderRadius: 12, padding: "16px 36px", fontSize: 17, fontWeight: 700, boxShadow: "0 0 40px #F9731650" }}>
               Criar minha conta grátis
               <ArrowRight size={18} />
             </Link>
             <div style={{ display: "flex", justifyContent: "center", gap: 24, marginTop: 24, flexWrap: "wrap" }}>
-              {["Sem cartão de crédito", "14 dias grátis", "Suporte via WhatsApp"].map((f) => (
+              {["Sem cartão de crédito", "Cancele quando quiser", "Suporte via WhatsApp"].map((f) => (
                 <span key={f} style={{ display: "flex", alignItems: "center", gap: 6, color: "#52525B", fontSize: 13 }}>
                   <Check size={12} color="#22C55E" /> {f}
                 </span>

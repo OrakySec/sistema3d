@@ -219,7 +219,22 @@ export async function updateQuote(quoteId: string, formData: FormData) {
   });
 
   // Sincroniza receita vinculada se o orçamento já foi aprovado
-  const existing = await prisma.revenue.findFirst({ where: { quoteId, userId } });
+  let existing = await prisma.revenue.findFirst({ where: { quoteId, userId } });
+
+  // Fallback: receitas criadas antes do campo quoteId existir — tenta achar pela descrição
+  if (!existing) {
+    const originalQuote = await prisma.quote.findUnique({ where: { id: quoteId, userId } });
+    if (originalQuote?.status === "APPROVED") {
+      existing = await prisma.revenue.findFirst({
+        where: { userId, quoteId: null, description: originalQuote.pieceName },
+        orderBy: { createdAt: "desc" },
+      });
+      // Vincula o quoteId para sincronizações futuras
+      if (existing) {
+        await prisma.revenue.update({ where: { id: existing.id }, data: { quoteId } });
+      }
+    }
+  }
   if (existing) {
     const [printer, filament, settings] = await Promise.all([
       data.printerId  ? prisma.printer.findFirst({ where: { id: data.printerId, userId } })  : null,
