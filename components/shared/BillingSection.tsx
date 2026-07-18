@@ -48,8 +48,8 @@ const FEATURES: PlanFeature[] = [
 
 // Preços mensais com desconto de 40% no anual
 const PRICES = {
-  PRO:    { monthly: 49.90, annual: 350 },
-  STUDIO: { monthly: 99.90, annual: 710 },
+  PRO:    { monthly: 20, annual: 144 },
+  STUDIO: { monthly: 50, annual: 360 },
 };
 
 function FeatureValue({ value }: { value: string | boolean }) {

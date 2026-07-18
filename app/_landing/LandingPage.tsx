@@ -590,8 +590,8 @@ export default function LandingPage() {
                 </div>
                 <div>
                   <p style={{ fontSize: 13, color: "#A1A1AA", marginBottom: 6 }}>Pro</p>
-                  <p style={{ fontSize: 36, fontWeight: 800, color: "#FAFAFA", lineHeight: 1 }}>R$ 49<span style={{ fontSize: 14, fontWeight: 400, color: "#A1A1AA" }}>/mês</span></p>
-                  <p style={{ fontSize: 12, color: "#22C55E", marginTop: 4 }}>R$ 4,90 no primeiro mês</p>
+                  <p style={{ fontSize: 36, fontWeight: 800, color: "#FAFAFA", lineHeight: 1 }}>R$ 20<span style={{ fontSize: 14, fontWeight: 400, color: "#A1A1AA" }}>/mês</span></p>
+                  <p style={{ fontSize: 12, color: "#22C55E", marginTop: 4 }}>R$ 2,00 no primeiro mês</p>
                 </div>
                 <ul style={{ display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
                   {[
@@ -628,8 +628,8 @@ export default function LandingPage() {
               <div style={{ background: "#111113", border: "1px solid #27272A", borderRadius: 16, padding: "28px 24px", display: "flex", flexDirection: "column", gap: 20, height: "100%" }}>
                 <div>
                   <p style={{ fontSize: 13, color: "#A1A1AA", marginBottom: 6 }}>Estúdio</p>
-                  <p style={{ fontSize: 36, fontWeight: 800, color: "#FAFAFA", lineHeight: 1 }}>R$ 99<span style={{ fontSize: 14, fontWeight: 400, color: "#A1A1AA" }}>/mês</span></p>
-                  <p style={{ fontSize: 12, color: "#22C55E", marginTop: 4 }}>R$ 9,90 no primeiro mês</p>
+                  <p style={{ fontSize: 36, fontWeight: 800, color: "#FAFAFA", lineHeight: 1 }}>R$ 50<span style={{ fontSize: 14, fontWeight: 400, color: "#A1A1AA" }}>/mês</span></p>
+                  <p style={{ fontSize: 12, color: "#22C55E", marginTop: 4 }}>R$ 5,00 no primeiro mês</p>
                 </div>
                 <ul style={{ display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
                   {[
