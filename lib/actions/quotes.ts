@@ -218,6 +218,37 @@ export async function updateQuote(quoteId: string, formData: FormData) {
     },
   });
 
+  // Sincroniza receita vinculada se o orçamento já foi aprovado
+  const existing = await prisma.revenue.findFirst({ where: { quoteId, userId } });
+  if (existing) {
+    const [printer, filament, settings] = await Promise.all([
+      data.printerId  ? prisma.printer.findFirst({ where: { id: data.printerId, userId } })  : null,
+      data.filamentId ? prisma.filament.findFirst({ where: { id: data.filamentId, userId } }) : null,
+      prisma.userSettings.findUnique({ where: { userId } }),
+    ]);
+    const newBreakdown = calculateQuote({
+      filamentGrams: data.filamentGrams, printHours: data.printHours,
+      profitMargin: data.profitMargin, paintingHours: data.paintingHours,
+      filamentCostPerKg: filament?.costPerKg ?? 85,
+      printerPowerWatts: printer?.powerWatts ?? 200,
+      printerPurchasePrice: printer?.purchasePrice ?? 1200,
+      printerEstimatedHours: printer?.estimatedHours ?? 3000,
+      printerMonthlyMaintenance: printer?.monthlyMaintenance ?? 0,
+      energyCostKwh: settings?.energyCostKwh ?? 0.75,
+      paintingHourlyRate: settings?.paintingHourlyRate ?? 0,
+    });
+    await prisma.revenue.update({
+      where: { id: existing.id },
+      data: {
+        description:    data.pieceName,
+        grossAmount:    newBreakdown.totalPrice,
+        productionCost: newBreakdown.filamentCost + newBreakdown.energyCost + newBreakdown.printerCost,
+        netProfit:      newBreakdown.profitAmount + newBreakdown.paintingCost,
+      },
+    });
+    revalidatePath("/financeiro");
+  }
+
   revalidatePath("/orcamentos");
   revalidatePath(`/orcamentos/${quoteId}`);
   redirect(`/orcamentos/${quoteId}`);
@@ -253,6 +284,7 @@ export async function updateQuoteStatus(
     await prisma.revenue.create({
       data: {
         userId,
+        quoteId:        quoteId,
         description:    quote.pieceName,
         grossAmount:    quote.totalPrice,
         productionCost,

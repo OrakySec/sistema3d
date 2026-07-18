@@ -649,6 +649,7 @@ model Revenue {
   userId         String
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   cardId         String?
+  quoteId        String?  // Orçamento de origem (para sincronização)
   description    String
   grossAmount    Float // Valor cobrado do cliente
   productionCost Float // Custo de produção (do orçamento)

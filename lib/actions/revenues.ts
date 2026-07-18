@@ -39,6 +39,25 @@ export async function createRevenue(formData: FormData) {
   return { ok: true };
 }
 
+export async function updateRevenue(revenueId: string, formData: FormData) {
+  const userId = await getUserId();
+  const parsed = revenueSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { error: "Dados inválidos." };
+
+  const { grossAmount, productionCost, ...rest } = parsed.data;
+  await prisma.revenue.update({
+    where: { id: revenueId, userId },
+    data: {
+      grossAmount,
+      productionCost,
+      netProfit: grossAmount - productionCost,
+      ...rest,
+    },
+  });
+  revalidatePath("/financeiro");
+  return { ok: true };
+}
+
 export async function deleteRevenue(revenueId: string) {
   const userId = await getUserId();
   await prisma.revenue.delete({ where: { id: revenueId, userId } });

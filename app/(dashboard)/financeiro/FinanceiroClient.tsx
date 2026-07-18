@@ -15,7 +15,7 @@ import { ExpensesPieChart }  from "@/components/financeiro/ExpensesPieChart";
 import { ProfitAreaChart }   from "@/components/financeiro/ProfitAreaChart";
 import { CrudDialog, FormField, DialogActions, inputCls, selectCls } from "@/components/shared/CrudDialog";
 import { createExpense, updateExpense, deleteExpense } from "@/lib/actions/expenses";
-import { createRevenue, deleteRevenue } from "@/lib/actions/revenues";
+import { createRevenue, updateRevenue, deleteRevenue } from "@/lib/actions/revenues";
 import { createCategory, updateCategory, deleteCategory } from "@/lib/actions/expense-categories";
 import { CATEGORY_COLOR_PALETTE } from "@/lib/expense-categories";
 import { RECURRING_FREQUENCY_LABELS, type RecurringFrequency } from "@/lib/recurring";
@@ -266,15 +266,18 @@ const revenueSchema = z.object({
 });
 type RevenueForm = z.infer<typeof revenueSchema>;
 
-function RevenueDialog({ onClose }: { onClose: () => void }) {
+function RevenueDialog({ revenue, onClose }: { revenue?: Revenue; onClose: () => void }) {
   const [pending, startTransition] = useTransition();
-  const [grossRaw, setGrossRaw]   = useState("");
-  const [costRaw, setCostRaw]     = useState("");
+  const [grossRaw, setGrossRaw]   = useState(revenue ? revenue.grossAmount.toFixed(2).replace(".", ",") : "");
+  const [costRaw, setCostRaw]     = useState(revenue ? revenue.productionCost.toFixed(2).replace(".", ",") : "");
   const [grossError, setGrossError] = useState<string | null>(null);
+  const isEdit = !!revenue;
 
   const { register, handleSubmit, formState: { errors } } = useForm<RevenueForm>({
     resolver: zodResolver(revenueSchema) as Resolver<RevenueForm>,
-    defaultValues: { date: new Date().toISOString().split("T")[0] },
+    defaultValues: revenue
+      ? { description: revenue.description, date: revenue.date.split("T")[0], notes: revenue.notes }
+      : { date: new Date().toISOString().split("T")[0] },
   });
 
   const gross  = parseBRL(grossRaw);
@@ -289,15 +292,19 @@ function RevenueDialog({ onClose }: { onClose: () => void }) {
     fd.append("grossAmount",    String(gross));
     fd.append("productionCost", String(cost));
     startTransition(async () => {
-      await createRevenue(fd);
+      if (isEdit) {
+        await updateRevenue(revenue!.id, fd);
+      } else {
+        await createRevenue(fd);
+      }
       onClose();
     });
   }
 
   return (
     <CrudDialog
-      title="Registrar Venda"
-      subtitle="Registre uma venda manualmente sem criar um orçamento"
+      title={isEdit ? "Editar Receita" : "Registrar Venda"}
+      subtitle={isEdit ? "Altere os dados desta receita" : "Registre uma venda manualmente sem criar um orçamento"}
       icon={ShoppingBag}
       onClose={onClose}
     >
@@ -343,7 +350,7 @@ function RevenueDialog({ onClose }: { onClose: () => void }) {
             />
           </FormField>
         </div>
-        <DialogActions onClose={onClose} loading={pending} submitLabel="Registrar venda" />
+        <DialogActions onClose={onClose} loading={pending} submitLabel={isEdit ? "Salvar alterações" : "Registrar venda"} />
       </form>
     </CrudDialog>
   );
@@ -581,9 +588,10 @@ const MONTH_LABELS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "S
 
 export function FinanceiroClient({ initialRevenues, initialExpenses, categories }: FinanceiroClientProps) {
   const [tab, setTab]                   = useState<TabType>("visao-geral");
-  const [dialogOpen, setDialogOpen]     = useState(false);
+  const [dialogOpen, setDialogOpen]       = useState(false);
   const [revenueDialog, setRevenueDialog] = useState(false);
-  const [editing, setEditing]           = useState<Expense | undefined>();
+  const [editing, setEditing]             = useState<Expense | undefined>();
+  const [editingRevenue, setEditingRevenue] = useState<Revenue | undefined>();
   const [filterCat, setFilterCat]       = useState<string>("ALL");
   const [onlyRecurring, setOnlyRecurring] = useState(false);
   const [, startTransition]             = useTransition();
@@ -761,7 +769,7 @@ export function FinanceiroClient({ initialRevenues, initialExpenses, categories 
           </div>
 
           <button
-            onClick={() => setRevenueDialog(true)}
+            onClick={() => { setEditingRevenue(undefined); setRevenueDialog(true); }}
             className="flex items-center gap-2 rounded-lg border border-success/40 bg-success-subtle px-4 py-2.5 text-sm font-semibold text-success transition-colors hover:bg-success/20"
           >
             <ShoppingBag className="h-4 w-4" />
@@ -924,7 +932,10 @@ export function FinanceiroClient({ initialRevenues, initialExpenses, categories 
                     <p className="text-xs text-text-muted sm:text-right">
                       {new Date(r.date).toLocaleDateString("pt-BR")}
                     </p>
-                    <div className="hidden sm:flex opacity-0 transition-opacity group-hover:opacity-100 justify-end">
+                    <div className="hidden sm:flex opacity-0 transition-opacity group-hover:opacity-100 justify-end gap-1">
+                      <button onClick={() => { setEditingRevenue(r); setRevenueDialog(true); }} className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted hover:bg-surface-hover hover:text-text-primary transition-colors">
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
                       <button onClick={() => handleDeleteRevenue(r.id)} className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted hover:bg-error-subtle hover:text-error transition-colors">
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -1055,7 +1066,7 @@ export function FinanceiroClient({ initialRevenues, initialExpenses, categories 
       {tab === "configuracoes" && <CategoriesSettings categories={categories} />}
 
       {dialogOpen && <ExpenseDialog expense={editing} categories={categories} onClose={closeDialog} />}
-      {revenueDialog && <RevenueDialog onClose={() => setRevenueDialog(false)} />}
+      {revenueDialog && <RevenueDialog revenue={editingRevenue} onClose={() => { setRevenueDialog(false); setEditingRevenue(undefined); }} />}
     </>
   );
 }
