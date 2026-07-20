@@ -3,6 +3,7 @@ import { Header } from "@/components/layout/Header";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { PastDueBanner } from "@/components/shared/PastDueBanner";
 import { SupportButton } from "@/components/shared/SupportButton";
+import { MobileWarningModal } from "@/components/shared/MobileWarningModal";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { effectivePlan } from "@/lib/plans";
@@ -50,6 +51,7 @@ export default async function DashboardLayout({
       {/* Bottom nav — só mobile */}
       <BottomNav plan={plan} />
       <SupportButton />
+      <MobileWarningModal />
     </div>
   );
 }

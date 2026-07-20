@@ -1,19 +1,22 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Monitor, X } from "lucide-react";
+import { Monitor } from "lucide-react";
+
+const STORAGE_KEY = "mobile_warning_dismissed";
 
 export function MobileWarningModal() {
   const [open, setOpen] = useState(false);
+  const [dontShow, setDontShow] = useState(false);
 
   useEffect(() => {
     const isMobile = window.innerWidth < 768;
-    const dismissed = sessionStorage.getItem("mobile-warning-dismissed");
+    const dismissed = localStorage.getItem(STORAGE_KEY) === "true";
     if (isMobile && !dismissed) setOpen(true);
   }, []);
 
-  function dismiss() {
-    sessionStorage.setItem("mobile-warning-dismissed", "1");
+  function handleConfirm() {
+    if (dontShow) localStorage.setItem(STORAGE_KEY, "true");
     setOpen(false);
   }
 
@@ -22,13 +25,8 @@ export function MobileWarningModal() {
   return (
     <div className="fixed inset-0 z-[9999] flex items-end justify-center sm:items-center p-4 bg-black/60 backdrop-blur-sm">
       <div className="w-full max-w-sm rounded-2xl border border-border bg-surface p-6 shadow-2xl animate-fade-in">
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl gradient-primary">
-            <Monitor className="h-5 w-5 text-white" />
-          </div>
-          <button onClick={dismiss} className="text-text-muted hover:text-text-primary transition-colors mt-0.5">
-            <X className="h-5 w-5" />
-          </button>
+        <div className="mb-4 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl gradient-primary">
+          <Monitor className="h-5 w-5 text-white" />
         </div>
         <h2 className="font-display text-lg font-bold text-text-primary">
           Melhor no computador
@@ -39,9 +37,20 @@ export function MobileWarningModal() {
         <p className="mt-1 text-sm text-text-muted">
           Recomendamos acessar pelo PC para uma experiência completa.
         </p>
+
+        <label className="mt-5 flex cursor-pointer items-center gap-3">
+          <input
+            type="checkbox"
+            checked={dontShow}
+            onChange={(e) => setDontShow(e.target.checked)}
+            className="h-4 w-4 rounded border-border accent-primary"
+          />
+          <span className="text-sm text-text-muted">Não mostrar novamente</span>
+        </label>
+
         <button
-          onClick={dismiss}
-          className="mt-5 w-full rounded-xl gradient-primary py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+          onClick={handleConfirm}
+          className="mt-4 w-full rounded-xl gradient-primary py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90"
         >
           Entendi, continuar assim mesmo
         </button>
