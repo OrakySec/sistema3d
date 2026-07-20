@@ -292,7 +292,7 @@ export function EstoqueClient({
                 <span className="hidden sm:block text-sm text-text-secondary">
                   {(f.costPerKg / 1000).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}/g
                 </span>
-                <div className="hidden sm:flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 justify-end">
+                <div className="flex gap-1 transition-opacity justify-end md:opacity-0 md:group-hover:opacity-100">
                   <button onClick={() => handleDuplicate(f)} title="Duplicar material"
                     className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted hover:bg-surface hover:text-primary transition-colors">
                     <Copy className="h-3.5 w-3.5" />

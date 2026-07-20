@@ -258,7 +258,7 @@ export function ImpressorasClient({
                     </div>
                   </div>
                 </div>
-                <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                <div className="flex gap-1 transition-opacity md:opacity-0 md:group-hover:opacity-100">
                   <button onClick={() => handleToggle(p.id, p.active)} title={p.active ? "Desativar" : "Ativar"}
                     className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted hover:bg-surface-hover hover:text-primary transition-colors">
                     <Power className="h-3.5 w-3.5" />

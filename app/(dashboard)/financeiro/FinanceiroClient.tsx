@@ -932,7 +932,7 @@ export function FinanceiroClient({ initialRevenues, initialExpenses, categories 
                     <p className="text-xs text-text-muted sm:text-right">
                       {new Date(r.date).toLocaleDateString("pt-BR")}
                     </p>
-                    <div className="hidden sm:flex opacity-0 transition-opacity group-hover:opacity-100 justify-end gap-1">
+                    <div className="flex opacity-100 transition-opacity justify-end gap-1 md:opacity-0 md:group-hover:opacity-100">
                       <button onClick={() => { setEditingRevenue(r); setRevenueDialog(true); }} className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted hover:bg-surface-hover hover:text-text-primary transition-colors">
                         <Pencil className="h-3.5 w-3.5" />
                       </button>
@@ -1031,7 +1031,7 @@ export function FinanceiroClient({ initialRevenues, initialExpenses, categories 
                   <p className="text-xs text-text-muted sm:text-right">
                     {new Date(e.date).toLocaleDateString("pt-BR")}
                   </p>
-                  <div className="hidden sm:flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 justify-end">
+                  <div className="flex gap-1 transition-opacity justify-end md:opacity-0 md:group-hover:opacity-100">
                     <button onClick={() => openEdit(e)} className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted hover:bg-surface hover:text-primary transition-colors">
                       <Pencil className="h-3.5 w-3.5" />
                     </button>

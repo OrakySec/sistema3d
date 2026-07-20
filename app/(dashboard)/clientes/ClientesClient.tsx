@@ -182,7 +182,7 @@ export function ClientesClient({
                   </p>
                 </div>
               </div>
-              <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+              <div className="flex gap-1 transition-opacity md:opacity-0 md:group-hover:opacity-100">
                 <button onClick={() => openEdit(c)}
                   className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted hover:bg-surface-hover hover:text-primary transition-colors">
                   <Pencil className="h-3.5 w-3.5" />

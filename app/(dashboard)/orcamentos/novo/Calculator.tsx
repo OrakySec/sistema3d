@@ -349,31 +349,31 @@ export function Calculator({ printers, filaments, clients, settings, plan, isFir
     <>
     <div className="mx-auto max-w-6xl">
       {/* Topbar */}
-      <div className="mb-6 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
           <Link href={isEditing ? `/orcamentos/${quoteId}` : "/orcamentos"}
-            className="flex items-center gap-1.5 text-sm text-text-secondary hover:text-text-primary transition-colors">
+            className="flex items-center gap-1.5 text-sm text-text-secondary hover:text-text-primary transition-colors shrink-0">
             <ChevronLeft className="h-4 w-4" /> {isEditing ? "Voltar" : "Orçamentos"}
           </Link>
           <span className="text-text-muted">/</span>
-          <span className="text-sm font-medium text-text-primary">
+          <span className="truncate text-sm font-medium text-text-primary">
             {isEditing ? "Editar Orçamento" : "Novo Orçamento"}
           </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {!isEditing && (
             <button onClick={() => handleSubmit("DRAFT")} disabled={pending || !pieceName}
-              className="flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-text-secondary transition-colors hover:border-primary/50 hover:text-text-primary disabled:opacity-50">
-              <Save className="h-4 w-4" /> Salvar rascunho
+              className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:border-primary/50 hover:text-text-primary disabled:opacity-50">
+              <Save className="h-4 w-4" /> <span className="hidden sm:inline">Salvar rascunho</span>
             </button>
           )}
           <button onClick={() => handleSubmit(isEditing ? "DRAFT" : "SENT")} disabled={pending || !pieceName || !breakdown}
-            className="flex items-center gap-2 rounded-lg gradient-primary px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50">
+            className="flex items-center gap-2 rounded-lg gradient-primary px-3 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50">
             {pending
               ? <Loader2 className="h-4 w-4 animate-spin" />
               : isEditing
-                ? <><Save className="h-4 w-4" /> Salvar alterações</>
-                : <><Send className="h-4 w-4" /> Gerar link</>}
+                ? <><Save className="h-4 w-4" /> <span className="hidden sm:inline">Salvar alterações</span></>
+                : <><Send className="h-4 w-4" /> <span className="hidden sm:inline">Gerar link</span></>}
           </button>
         </div>
       </div>
